@@ -15,9 +15,7 @@
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# VS Code
 #.vscode/
 
 # Flutter/Dart/Pub related
@@ -47,3 +45,31 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ============================================
+# 🔐 SENSITIVE FILES - DO NOT COMMIT
+# ============================================
+
+# Firebase config files (contain API keys)
+ios/GoogleService-Info.plist
+android/app/google-services.json
+
+# iOS Certificates & Provisioning Profiles
+*.p12
+*.cer
+*.mobileprovision
+*.p8
+
+# Keystore files (Android signing)
+*.jks
+*.keystore
+android/key.properties
+
+# Environment / secrets files
+.env
+.env.*
+secrets.json
+config/secrets.dart
+
+# macOS
+*.DS_Store
