@@ -972,48 +972,121 @@ class _MenuTabsSectionState extends State<_MenuTabsSection> {
                     }
                   }
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey.shade100),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // Pick a subtle gradient palette per item
+                  final List<List<Color>> _gradients = [
+                    [const Color(0xFFF8F4EF), const Color(0xFFEDE5D8)], // Warm ivory
+                    [const Color(0xFFF0F4FA), const Color(0xFFDDE7F3)], // Cool sky
+                    [const Color(0xFFF5F0F8), const Color(0xFFE8DCF0)], // Soft lavender
+                    [const Color(0xFFEFF8F4), const Color(0xFFD8EDE3)], // Mint fresh
+                    [const Color(0xFFFFF8F0), const Color(0xFFF0E0C8)], // Golden cream
+                  ];
+                  final gradientColors = _gradients[items.indexOf(item) % _gradients.length];
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        if (image.isNotEmpty) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              width: 80,
-                              height: 80,
-                              child: CustomImage(
-                                image: imageUrl,
-                                fit: BoxFit.cover,
-                                placeholder: Images.placeholder,
-                              ),
+                        // ─── Main Card ───
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: gradientColors,
                             ),
+                            border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.2),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, 6)),
+                              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                        ],
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Stack(
                             children: [
-                              Text(title, style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
-                              if (desc.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(desc, style: robotoRegular.copyWith(fontSize: 13, color: Colors.grey[600], height: 1.4)),
-                              ],
-                              const SizedBox(height: 12),
-                              Text('\$$price', style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
+                              // ─── Subtle watermark icon behind content ───
+                              if (image.isNotEmpty)
+                                Positioned(
+                                  right: -8,
+                                  bottom: -8,
+                                  child: Opacity(
+                                    opacity: 0.08,
+                                    child: SizedBox(
+                                      width: 90,
+                                      height: 90,
+                                      child: CustomImage(
+                                        image: imageUrl,
+                                        fit: BoxFit.contain,
+                                        placeholder: Images.placeholder,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              // ─── Card Content ───
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (image.isNotEmpty) ...[
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4)),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: SizedBox(
+                                          width: 85,
+                                          height: 85,
+                                          child: CustomImage(
+                                            image: imageUrl,
+                                            fit: BoxFit.cover,
+                                            placeholder: Images.placeholder,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                  ],
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(title, style: robotoBold.copyWith(fontSize: 15, color: _kPrimary)),
+                                        if (desc.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Text(desc, style: robotoRegular.copyWith(fontSize: 12, color: Colors.grey[600], height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                        ],
+                                        const SizedBox(height: 20), // Space for the floating price
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
-                        // Plus icon removed as requested
+                        // ─── Floating Price Badge (half inside, half outside) ───
+                        if (price.isNotEmpty)
+                          Positioned(
+                            bottom: -12,
+                            left: image.isNotEmpty ? 115 : 16,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFC5A059), Color(0xFFD4B06A)],
+                                ),
+                                borderRadius: BorderRadius.circular(30),
+                                boxShadow: [
+                                  BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+                                ],
+                              ),
+                              child: Text('\$$price', style: robotoBold.copyWith(fontSize: 14, color: Colors.white)),
+                            ),
+                          ),
                       ],
                     ),
                   );

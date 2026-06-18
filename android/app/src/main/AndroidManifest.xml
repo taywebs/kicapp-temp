@@ -28,12 +28,12 @@
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
         android:extractNativeLibs="true"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
         android:requestLegacyExternalStorage="true"
 
 
         <meta-data android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBrr_T5n4hkB9majUhJk5nc7kl5--2E5kk"/>
+            android:value="AIzaSyBrr_T5n4hkB9majUhJk5nc7k15--2E5kk"/>
 
         <provider
             android:name="com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFileProvider"

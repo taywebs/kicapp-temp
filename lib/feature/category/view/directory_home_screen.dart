@@ -9,6 +9,7 @@ import 'package:demandium/feature/category/view/directory_details_screen.dart';
 import 'package:demandium/feature/home/controller/banner_controller.dart';
 import 'package:demandium/feature/category/controller/category_controller.dart';
 import 'package:demandium/feature/category/widget/directory_transition_dialog.dart';
+import 'package:demandium/feature/location/controller/location_controller.dart';
 
 // Brand Colors
 const Color _kPrimary = Color(0xFF1A1A1B);
@@ -51,11 +52,11 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kNeutral, // Light gray background matching the design
+      backgroundColor: Colors.transparent, // Inherit gradient from main screen
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 100),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -75,7 +76,17 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Your Location', style: robotoRegular.copyWith(fontSize: 11, color: Colors.grey[600])),
-                              Text('Downtown Dubai', style: robotoBold.copyWith(fontSize: 13, color: _kPrimary)),
+                              GetBuilder<LocationController>(builder: (locationController) {
+                                return SizedBox(
+                                  width: 150,
+                                  child: Text(
+                                    locationController.getUserAddress()?.address ?? 'Select Location',
+                                    style: robotoBold.copyWith(fontSize: 13, color: _kPrimary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }),
                             ],
                           ),
                           const SizedBox(width: 4),
@@ -190,11 +201,35 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('KIC Services', style: robotoBold.copyWith(fontSize: 17, color: _kPrimary)),
-                          Row(
-                            children: [
-                              Text('See all', style: robotoMedium.copyWith(color: Colors.grey[600], fontSize: 13)),
-                              Icon(Icons.chevron_right_rounded, color: Colors.grey[600], size: 16),
-                            ],
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+                                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 2, offset: const Offset(0, 1)),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(30),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.85),
+                                    borderRadius: BorderRadius.circular(30),
+                                    border: Border.all(color: Colors.grey.withOpacity(0.25), width: 1.0),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text('See all', style: robotoMedium.copyWith(color: _kPrimary.withOpacity(0.85), fontSize: 11)),
+                                      const SizedBox(width: 2),
+                                      Icon(Icons.chevron_right_rounded, color: _kPrimary.withOpacity(0.85), size: 14),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -212,10 +247,10 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
-                            image: const DecorationImage(
-                              image: NetworkImage('https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=600&auto=format&fit=crop'), // Placeholder for cleaning
-                              fit: BoxFit.cover,
-                            ),
+                              image: const DecorationImage(
+                                image: NetworkImage('https://images.unsplash.com/photo-1601362840469-51e4d8d58785?q=80&w=600&auto=format&fit=crop'), // Professional car wash
+                                fit: BoxFit.cover,
+                              ),
                           ),
                           child: Container(
                             decoration: BoxDecoration(
@@ -281,32 +316,36 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                                   Expanded(
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.blueGrey[300],
+                                        color: Colors.blueGrey[800],
                                         borderRadius: BorderRadius.circular(20),
                                         image: const DecorationImage(
-                                          image: NetworkImage('https://images.unsplash.com/photo-1584820927498-cafe2c1c6a63?q=80&w=400&auto=format&fit=crop'), // Placeholder disinfect
+                                          image: NetworkImage('https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=400&auto=format&fit=crop'), // Mobile Wash
                                           fit: BoxFit.cover,
-                                          colorFilter: ColorFilter.mode(Colors.black26, BlendMode.darken),
+                                          colorFilter: ColorFilter.mode(Colors.black38, BlendMode.darken),
                                         ),
                                       ),
                                       alignment: Alignment.center,
-                                      child: Text('Disinfect', style: robotoBold.copyWith(color: Colors.white, fontSize: 12)),
+                                      child: Text('Mobile Wash', style: robotoBold.copyWith(color: Colors.white, fontSize: 12)),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: Colors.white.withOpacity(0.8),
                                         borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: Colors.white, width: 1.5),
+                                        boxShadow: [
+                                          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                                        ],
                                       ),
                                       alignment: Alignment.center,
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          const Icon(Icons.auto_awesome, color: _kPrimary, size: 24),
+                                          const Icon(Icons.ac_unit_rounded, color: _kSecondary, size: 24),
                                           const SizedBox(height: 8),
-                                          Text('Specialist', style: robotoBold.copyWith(color: _kPrimary, fontSize: 12)),
+                                          Text('AC Repair', style: robotoBold.copyWith(color: _kPrimary, fontSize: 12)),
                                         ],
                                       ),
                                     ),
@@ -351,9 +390,9 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                   child: GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
-                      childAspectRatio: 0.82,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.70,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 16,
                     ),
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -372,28 +411,44 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 60, height: 60,
+                              width: 78, height: 78,
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
+                                color: Colors.white.withOpacity(0.95),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white, width: 1.5),
                                 boxShadow: [
-                                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04), 
+                                    blurRadius: 15, 
+                                    offset: const Offset(0, 6)
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.01), 
+                                    blurRadius: 4, 
+                                    offset: const Offset(0, 2)
+                                  ),
                                 ],
                               ),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 32, height: 32,
-                                  child: CustomImage(
-                                    image: category.imageFullPath ?? '', 
-                                    fit: BoxFit.contain,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 58, height: 58,
+                                      child: CustomImage(
+                                        image: category.imageFullPath ?? '', 
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 8),
                             Text(
                               category.name ?? '',
-                              style: robotoMedium.copyWith(fontSize: 11, color: _kPrimary),
+                              style: robotoMedium.copyWith(fontSize: 12, color: _kPrimary),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,

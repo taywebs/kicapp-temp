@@ -61,7 +61,21 @@ class _DirectoryMainScreenState extends State<DirectoryMainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: _screens[_pageIndex],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomRight,
+            stops: [0.0, 0.6, 1.0],
+            colors: [
+              Color(0xFFFFFFFF), // Pure white
+              Color(0xFFFDFBF7), // Extremely subtle hint of gold
+              Color(0xFFF5EFE1), // Soft, elegant light gold tint
+            ],
+          ),
+        ),
+        child: _screens[_pageIndex],
+      ),
       bottomNavigationBar: SafeArea(
         child: Container(
           margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
