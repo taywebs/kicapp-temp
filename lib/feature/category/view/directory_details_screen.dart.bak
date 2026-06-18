@@ -1,0 +1,907 @@
+import 'package:demandium/utils/core_export.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:demandium/feature/category/controller/directory_controller.dart';
+import 'package:demandium/feature/category/model/directory_model.dart';
+import 'package:demandium/feature/category/view/directory_review_screen.dart';
+import 'package:demandium/feature/category/view/directory_all_reviews_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+// ─── Elegant React-like Brand Colors ────────────────────────
+const Color _kPrimary   = Color(0xFF1A1A1B);
+const Color _kGold      = Color(0xFFC5A059);
+const Color _kBlue      = Color(0xFF0052CC);
+const Color _kNeutral   = Color(0xFFF7F9FC); // A cleaner, softer off-white
+const Color _kGoldLight = Color(0xFFFDF8EE);
+
+class DirectoryDetailsScreen extends StatefulWidget {
+  final String directoryId;
+  final String categoryName;
+  final DirectoryModel? initialModel;
+
+  const DirectoryDetailsScreen({
+    super.key,
+    required this.directoryId,
+    required this.categoryName,
+    this.initialModel,
+  });
+
+  @override
+  State<DirectoryDetailsScreen> createState() => _DirectoryDetailsScreenState();
+}
+
+class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        Get.find<DirectoryController>().getDirectoryDetails(widget.directoryId, initialModel: widget.initialModel);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _kNeutral,
+      body: GetBuilder<DirectoryController>(builder: (ctrl) {
+        if (ctrl.isLoading) {
+          return const Center(child: CircularProgressIndicator(color: _kGold));
+        }
+
+        if (ctrl.directoryDetails == null) {
+          return _buildError(ctrl);
+        }
+
+        final DirectoryModel d = ctrl.directoryDetails!;
+        final double rating = d.averageRating ?? 0.0;
+        final int reviewCount = ctrl.ratingInfo?['review_count'] ?? 0;
+        final List<dynamic> reviews = ctrl.reviewsList ?? [];
+
+        return Stack(
+          children: [
+            // ─── Scrollable body ───
+            CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                // ─── Modern Banner ───
+                SliverAppBar(
+                  expandedHeight: 200, // Shorter, cleaner banner
+                  pinned: true,
+                  backgroundColor: _kPrimary,
+                  elevation: 0,
+                  leading: _glassCircleBtn(Icons.arrow_back_ios_new_rounded, () => Get.back(), size: 18),
+                  actions: [
+                    _favoriteBtn(d),
+                    const SizedBox(width: 12),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CustomImage(
+                          image: d.bannerUrl ?? '',
+                          fit: BoxFit.cover,
+                          placeholder: Images.placeholder,
+                        ),
+                        // Very subtle overlay for back button legibility
+                        Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0x55000000), Colors.transparent],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ─── Main content ───
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ─── Header: Avatar + Title ───
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Square Avatar (like an App Store icon)
+                            Container(
+                              height: 84,
+                              width: 84,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                color: Colors.white,
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: _buildAvatar(d),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Title & Location
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    d.title ?? 'Unnamed',
+                                    style: robotoBold.copyWith(fontSize: 24, color: _kPrimary, height: 1.2),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.location_on_rounded, color: _kBlue, size: 14),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          d.address ?? d.city ?? 'Location N/A',
+                                          style: robotoRegular.copyWith(fontSize: 13, color: Colors.grey[600]),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                      // Rating row
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ...List.generate(5, (i) => Icon(
+                              i < rating.floor()
+                                  ? Icons.star_rounded
+                                  : (i < rating ? Icons.star_half_rounded : Icons.star_outline_rounded),
+                              color: _kGold,
+                              size: 20,
+                            )),
+                            const SizedBox(width: 8),
+                            Text(
+                              rating.toStringAsFixed(1),
+                              style: robotoBold.copyWith(fontSize: 15, color: _kPrimary),
+                            ),
+                            Text(
+                              ' ($reviewCount reviews)',
+                              style: robotoRegular.copyWith(fontSize: 14, color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // ─── Elegant Action Buttons ───
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 10)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _actionBtn(Icons.directions_rounded, 'Direction', _kBlue, () async {
+                              if (d.latitude != null && d.longitude != null) {
+                                final url = 'https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}';
+                                if (await canLaunchUrl(Uri.parse(url))) {
+                                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                }
+                              } else {
+                                customSnackBar('Location not available');
+                              }
+                            }),
+                            _divider(),
+                            _actionBtn(Icons.phone_rounded, 'Call', const Color(0xFF27AE60), () async {
+                              if (d.phone != null && d.phone!.isNotEmpty) {
+                                final url = 'tel:${d.phone}';
+                                if (await canLaunchUrl(Uri.parse(url))) await launchUrl(Uri.parse(url));
+                              } else {
+                                customSnackBar('Phone not available');
+                              }
+                            }),
+                            _divider(),
+                            _actionBtn(Icons.language_rounded, 'Website', const Color(0xFF8E44AD), () async {
+                              if (d.website != null && d.website!.isNotEmpty) {
+                                String url = d.website!;
+                                if (!url.startsWith('http')) url = 'https://$url';
+                                if (await canLaunchUrl(Uri.parse(url))) {
+                                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                }
+                              } else {
+                                customSnackBar('Website not available');
+                              }
+                            }),
+                            _divider(),
+                            _actionBtn(Icons.rate_review_rounded, 'Review', _kGold, () {
+                              if (Get.find<AuthController>().isLoggedIn()) {
+                                Get.to(() => DirectoryReviewScreen(
+                                  directoryId: d.id!,
+                                  directoryTitle: d.title!,
+                                ));
+                              } else {
+                                customSnackBar('you_are_not_logged_in'.tr);
+                              }
+                            }),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // ─── About ───
+                      if (d.description != null && d.description!.isNotEmpty)
+                        _sectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionTitle('About'),
+                              const SizedBox(height: 16),
+                              Text(
+                                d.description!,
+                                style: robotoRegular.copyWith(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                  height: 1.7,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // ─── Features & Amenities ───
+                      if (d.features != null && d.features!.isNotEmpty)
+                        _sectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionTitle('Features & Amenities'),
+                              const SizedBox(height: 16),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: d.features!.map((feature) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: _kGold.withOpacity(0.1),
+                                      border: Border.all(color: _kGold.withOpacity(0.3)),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.check_circle_rounded, size: 16, color: _kGold),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          feature.toString(),
+                                          style: robotoMedium.copyWith(fontSize: 13, color: _kPrimary),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 20),
+
+                      // ─── Dynamic Features (Schema Data) ───
+                      if (d.dynamicData != null && d.dynamicData is Map && (d.dynamicData as Map).isNotEmpty)
+                        _sectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionTitle('Details & Information'),
+                              const SizedBox(height: 16),
+                              ...((d.dynamicData as Map).entries.map((entry) {
+                                String key = entry.key.toString();
+                                dynamic val = entry.value;
+                                return _renderDynamicField(key, val);
+                              }).toList()),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 20),
+
+                      // ─── Reviews Section ───
+                      _sectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                _sectionTitle('Reviews'),
+                                if (reviewCount > 2)
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () => Get.to(() => DirectoryAllReviewsScreen(
+                                      directoryId: d.id!,
+                                      directoryTitle: d.title!,
+                                    )),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      child: Text(
+                                        'View All',
+                                        style: robotoMedium.copyWith(fontSize: 14, color: _kBlue),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Big rating display
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              decoration: BoxDecoration(
+                                color: _kGoldLight,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: _kGold.withOpacity(0.15), width: 1),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    rating.toStringAsFixed(1),
+                                    style: robotoBold.copyWith(fontSize: 56, color: _kGold, height: 1.0),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(5, (i) => Icon(
+                                      i < rating.floor()
+                                          ? Icons.star_rounded
+                                          : (i < rating ? Icons.star_half_rounded : Icons.star_outline_rounded),
+                                      color: _kGold,
+                                      size: 24,
+                                    )),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '$reviewCount verified reviews',
+                                    style: robotoRegular.copyWith(fontSize: 13, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Review list
+                            if (reviews.isNotEmpty)
+                              ...reviews.take(3).map((rev) => _reviewItem(context, rev))
+                            else
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 30),
+                                  child: Column(
+                                    children: [
+                                      Icon(Icons.rate_review_outlined, size: 48, color: Colors.grey[300]),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'No reviews yet',
+                                        style: robotoMedium.copyWith(color: Colors.grey[600], fontSize: 16),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                            const SizedBox(height: 16),
+
+                            // Write review button
+                            SizedBox(
+                              width: double.infinity,
+                              height: 54,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  if (Get.find<AuthController>().isLoggedIn()) {
+                                    Get.to(() => DirectoryReviewScreen(
+                                      directoryId: d.id!,
+                                      directoryTitle: d.title!,
+                                    ));
+                                  } else {
+                                    customSnackBar('you_are_not_logged_in'.tr);
+                                  }
+                                },
+                                icon: const Icon(Icons.edit_square, size: 20),
+                                label: Text('Write a Review', style: robotoBold.copyWith(fontSize: 15)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _kPrimary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 60),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────
+
+  Widget _renderDynamicField(String key, dynamic val) {
+    if (val == null || val.toString().isEmpty || val.toString() == 'null') return const SizedBox();
+
+    String formattedKey = key.replaceAll('_', ' ');
+    formattedKey = formattedKey.split(' ').map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '').join(' ');
+
+    // ─── Handle Map (Working Hours or Key-Value) ───
+    if (val is Map) {
+      // Check if it's likely working hours
+      bool isWorkingHours = val.keys.any((k) => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].contains(k.toString()));
+      
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(isWorkingHours ? Icons.access_time_rounded : Icons.info_outline_rounded, size: 20, color: _kGold),
+                const SizedBox(width: 8),
+                Text(formattedKey, style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: _kNeutral, borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                children: val.entries.map<Widget>((e) {
+                  String day = e.key.toString();
+                  var data = e.value;
+                  if (data is Map) {
+                    bool active = data['active'] == '1' || data['active'] == true;
+                    String start = data['start']?.toString() ?? '';
+                    String end = data['end']?.toString() ?? '';
+                    String timeStr = active && start.isNotEmpty && end.isNotEmpty ? '$start - $end' : 'Closed';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(day, style: robotoMedium.copyWith(fontSize: 14, color: _kPrimary)),
+                          Text(timeStr, style: robotoRegular.copyWith(fontSize: 14, color: active ? Colors.grey[700] : Colors.red[300])),
+                        ],
+                      ),
+                    );
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(day, style: robotoMedium.copyWith(fontSize: 14, color: _kPrimary)),
+                      Text(data.toString(), style: robotoRegular.copyWith(fontSize: 14, color: Colors.grey[700])),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ─── Handle List (Menu Items) ───
+    if (val is List) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.restaurant_menu_rounded, size: 20, color: _kGold),
+                const SizedBox(width: 8),
+                Text(formattedKey, style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...val.map((item) {
+              if (item is Map) {
+                String title = item['title']?.toString() ?? '';
+                String price = item['price']?.toString() ?? '';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(child: Text(title, style: robotoMedium.copyWith(fontSize: 14, color: _kPrimary))),
+                      Text('\$$price', style: robotoBold.copyWith(fontSize: 15, color: _kGold)),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox();
+            }),
+          ],
+        ),
+      );
+    }
+
+    // ─── Handle Standard Text ───
+    String strVal = val.toString();
+    if (strVal == '1' || strVal == '0') {
+      strVal = strVal == '1' ? 'Yes' : 'No';
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _kNeutral,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.info_outline_rounded, size: 18, color: _kBlue),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(formattedKey, style: robotoBold.copyWith(fontSize: 14, color: _kPrimary)),
+                const SizedBox(height: 4),
+                Text(strVal, style: robotoRegular.copyWith(fontSize: 14, color: Colors.grey[600], height: 1.5)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(DirectoryModel d) {
+    if (d.logoUrl != null && d.logoUrl!.isNotEmpty) {
+      return CustomImage(
+        image: d.logoUrl!,
+        fit: BoxFit.cover,
+        placeholder: Images.placeholder,
+      );
+    }
+    // Elegant fallback if no logo exists (initials)
+    String init = (d.title != null && d.title!.isNotEmpty) ? d.title![0].toUpperCase() : 'D';
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF2C3E50), Color(0xFF000000)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          init,
+          style: robotoBold.copyWith(fontSize: 48, color: _kGold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError(DirectoryController ctrl) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.red.withOpacity(0.1)),
+            child: const Icon(Icons.error_outline_rounded, size: 48, color: Colors.redAccent),
+          ),
+          const SizedBox(height: 20),
+          Text('Failed to load details', style: robotoBold.copyWith(fontSize: 18, color: _kPrimary)),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _kGold,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            onPressed: () => ctrl.getDirectoryDetails(widget.directoryId),
+            child: const Text('Try Again', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _glassCircleBtn(IconData icon, VoidCallback onTap, {double size = 20}) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9), // Glass effect
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Icon(icon, color: _kPrimary, size: size),
+        ),
+      ),
+    );
+  }
+
+  Widget _favoriteBtn(DirectoryModel d) {
+    return GetBuilder<ProviderBookingController>(
+      builder: (pbc) {
+        // First check providerList from pbc (if user navigated from provider list)
+        bool saved = false;
+        final pIndex = pbc.providerList?.indexWhere((p) => p.id == d.providerId) ?? -1;
+        if (pIndex > -1) {
+          saved = pbc.providerList![pIndex].isFavorite == 1;
+        } else {
+          // Fallback to local directory model provider map
+          saved = d.provider != null && d.provider!['is_favorite'] == 1;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 8, right: 0),
+          child: InkWell(
+            onTap: () {
+              if (Get.find<AuthController>().isLoggedIn()) {
+                if (d.providerId != null) {
+                  // Toggle locally for instant UI response
+                  if (d.provider != null) {
+                    d.provider!['is_favorite'] = saved ? 0 : 1;
+                  }
+                  pbc.updateIsFavoriteStatus(providerId: d.providerId!);
+                  Get.find<DirectoryController>().update(); // Refresh UI
+                  customSnackBar(
+                    saved ? 'Removed from saved' : 'Saved successfully!',
+                    type: saved ? ToasterMessageType.error : ToasterMessageType.success,
+                  );
+                }
+              } else {
+                customSnackBar('you_are_not_logged_in'.tr);
+              }
+            },
+            customBorder: const CircleBorder(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: saved ? _kPrimary : Colors.white.withOpacity(0.9),
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(saved ? 0.2 : 0.08), blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: Icon(
+                saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                color: saved ? Colors.white : _kPrimary,
+                size: 22,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _divider() {
+    return Container(
+      height: 40,
+      width: 1,
+      color: Colors.grey.withOpacity(0.15),
+    );
+  }
+
+  Widget _actionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      splashColor: color.withOpacity(0.1),
+      highlightColor: color.withOpacity(0.05),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Column(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(label, style: robotoMedium.copyWith(fontSize: 12, color: _kPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionCard({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 20, offset: const Offset(0, 8))],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Row(
+      children: [
+        Container(
+          width: 5,
+          height: 20,
+          decoration: BoxDecoration(
+            color: _kGold,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(text, style: robotoBold.copyWith(fontSize: 18, color: _kPrimary)),
+      ],
+    );
+  }
+
+  Widget _featureChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: _kPrimary),
+          const SizedBox(width: 8),
+          Text(label, style: robotoMedium.copyWith(fontSize: 13, color: _kPrimary)),
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewItem(BuildContext context, dynamic rev) {
+    String name = 'User';
+    String comment = '';
+    String date = '';
+    double reviewRating = 0;
+
+    try {
+      if (rev['reviewer_name'] != null && rev['reviewer_name'].toString().isNotEmpty) {
+        name = rev['reviewer_name'].toString();
+      } else if (rev['customer'] != null) {
+        name = '${rev['customer']['first_name'] ?? ''} ${rev['customer']['last_name'] ?? ''}'.trim();
+        if (name.isEmpty) name = 'Anonymous';
+      }
+      comment = rev['review_comment']?.toString() ?? '';
+      date = rev['created_at']?.toString().substring(0, 10) ?? '';
+      reviewRating = double.tryParse(rev['review_rating']?.toString() ?? '0') ?? 0;
+    } catch (_) {}
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _kNeutral,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: _kGold.withOpacity(0.12),
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                      style: robotoBold.copyWith(fontSize: 16, color: _kGold),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: robotoBold.copyWith(fontSize: 14, color: _kPrimary)),
+                      const SizedBox(height: 2),
+                      if (date.isNotEmpty)
+                        Text(date, style: robotoRegular.copyWith(fontSize: 11, color: Colors.grey[500])),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4)],
+                ),
+                child: Row(
+                  children: [
+                    Text(reviewRating.toStringAsFixed(1), style: robotoBold.copyWith(fontSize: 12, color: _kPrimary)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.star_rounded, color: _kGold, size: 14),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (comment.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              comment,
+              style: robotoRegular.copyWith(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.6,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

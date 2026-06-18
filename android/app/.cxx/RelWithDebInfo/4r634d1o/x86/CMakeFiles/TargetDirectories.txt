@@ -1,0 +1,2 @@
+D:/MyAppsDeveloper/KicApps User2 Brahim/android/app/.cxx/RelWithDebInfo/4r634d1o/x86/CMakeFiles/edit_cache.dir
+D:/MyAppsDeveloper/KicApps User2 Brahim/android/app/.cxx/RelWithDebInfo/4r634d1o/x86/CMakeFiles/rebuild_cache.dir

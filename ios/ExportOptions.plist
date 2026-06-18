@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- method: development = للتجربة على جهازك الشخصي فقط -->
+    <key>method</key>
+    <string>development</string>
+
+    <!-- teamID: Team ID الخاص بحساب المطور في آبل -->
+    <key>teamID</key>
+    <string>7WSYLQ8Y87</string>
+
+    <!-- signingStyle: automatic = آبل تختار الشهادة تلقائياً -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+
+    <!-- تعطيل تحميل الرموز إلى Apple servers (لتسريع عملية الـ build) -->
+    <key>uploadSymbols</key>
+    <false/>
+
+    <!-- تعطيل رفع ملف الـ bitcode -->
+    <key>compileBitcode</key>
+    <false/>
+</dict>
+</plist>

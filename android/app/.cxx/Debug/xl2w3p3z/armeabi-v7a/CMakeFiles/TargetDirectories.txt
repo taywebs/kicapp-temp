@@ -1,0 +1,2 @@
+D:/MyAppsDeveloper/KicApps User2 Brahim/android/app/.cxx/Debug/xl2w3p3z/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/MyAppsDeveloper/KicApps User2 Brahim/android/app/.cxx/Debug/xl2w3p3z/armeabi-v7a/CMakeFiles/rebuild_cache.dir

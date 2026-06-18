@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "557517380493",
+    "project_id": "kicapps",
+    "storage_bucket": "kicapps.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:557517380493:android:018f75bc949cb085ab3bc4",
+        "android_client_info": {
+          "package_name": "com.khetelehteraf.kicapp.user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBLpY9IYueV6NZA0xRmgwPkYeV_UOLOljU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

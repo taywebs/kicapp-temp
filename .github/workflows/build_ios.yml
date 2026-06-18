@@ -1,0 +1,100 @@
+name: 🍎 Build iOS IPA (KicApps)
+
+# متى يعمل هذا الـ workflow؟
+on:
+  # عند الضغط على زر Run Workflow يدوياً من GitHub
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'رقم الإصدار (مثال: 12)'
+        required: false
+        default: '1'
+
+jobs:
+  build-ios:
+    name: Build Flutter iOS IPA
+    # يعمل على جهاز Mac في سحابة GitHub (مجاناً لـ 2000 دقيقة/شهر)
+    runs-on: macos-latest
+
+    steps:
+      # ===== الخطوة 1: تحميل كود المشروع =====
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ===== الخطوة 2: تثبيت Flutter =====
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.0'
+          channel: 'stable'
+          cache: true
+
+      # ===== الخطوة 3: تحقق من إصدار Flutter =====
+      - name: 🔍 Flutter version check
+        run: flutter --version
+
+      # ===== الخطوة 4: تثبيت dependencies =====
+      - name: 📦 Install Flutter dependencies
+        run: flutter pub get
+
+      # ===== الخطوة 5: تثبيت CocoaPods dependencies =====
+      - name: 🍫 Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+        working-directory: ${{ github.workspace }}
+
+      # ===== الخطوة 6: إنشاء شهادة مؤقتة للتجربة (Ad Hoc / No Signing) =====
+      # ملاحظة: لأننا نريد تجربة الملف فقط بدون رفعه لآبل، نستخدم unsigned archive
+      - name: 🔐 Setup Code Signing (Development - No Certificate needed for IPA extraction)
+        run: |
+          # إنشاء keychain مؤقت
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security set-keychain-settings -t 3600 -l ~/Library/Keychains/build.keychain
+
+      # ===== الخطوة 7: بناء Flutter iOS release =====
+      - name: 🏗️ Build Flutter iOS (Release - No Codesign)
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-number=${{ github.event.inputs.build_number || '1' }}
+
+      # ===== الخطوة 8: إنشاء مجلد Payload وتحضير IPA يدوياً =====
+      # (بما أننا لا نستخدم شهادة، نقوم بضغط المجلد يدوياً كـ IPA)
+      - name: 📦 Package IPA manually (unsigned)
+        run: |
+          # إنشاء مجلد Payload
+          mkdir -p build/ios/ipa/Payload
+
+          # نسخ ملف Runner.app إلى Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+
+          # ضغط Payload إلى ipa
+          cd build/ios/ipa
+          zip -r KicApps.ipa Payload
+
+          echo "✅ IPA created successfully!"
+          ls -lh KicApps.ipa
+
+      # ===== الخطوة 9: رفع ملف IPA كـ Artifact (لكي تقدر تحمله) =====
+      - name: ⬆️ Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KicApps-iOS-IPA
+          path: build/ios/ipa/KicApps.ipa
+          retention-days: 7  # يحتفظ بالملف لمدة 7 أيام
+
+      # ===== الخطوة 10: طباعة رسالة نهاية =====
+      - name: 🎉 Build Complete
+        run: |
+          echo "======================================"
+          echo "✅ IPA built successfully!"
+          echo "📱 Bundle ID: com.khetelehteraf.kicapp.user"
+          echo "🏷️ Version: 1.0.8 (Build ${{ github.event.inputs.build_number || '1' }})"
+          echo "📥 Download from Actions > Artifacts tab"
+          echo "======================================"
+          echo ""
+          echo "⚠️  ملاحظة مهمة:"
+          echo "هذا الـ IPA بدون توقيع (unsigned)."
+          echo "لتثبيته على جهازك يحتاج أداة مثل AltStore أو Sideloadly."

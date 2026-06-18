@@ -1,0 +1,2 @@
+D:/MyAppsDeveloper/kicapps_User/android/app/.cxx/Debug/5g6g663s/x86/CMakeFiles/edit_cache.dir
+D:/MyAppsDeveloper/kicapps_User/android/app/.cxx/Debug/5g6g663s/x86/CMakeFiles/rebuild_cache.dir
