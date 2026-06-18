@@ -33,7 +33,7 @@
 
 
         <meta-data android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyA_8XlpNjaCAR6KDTRjDc8qq2DT3_GvwSs"/>
+            android:value="AIzaSyBrr_T5n4hkB9majUhJk5nc7kl5--2E5kk"/>
 
         <provider
             android:name="com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFileProvider"
