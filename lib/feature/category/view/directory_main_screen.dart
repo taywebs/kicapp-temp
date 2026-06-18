@@ -64,13 +64,14 @@ class _DirectoryMainScreenState extends State<DirectoryMainScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
+            begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            stops: [0.0, 0.6, 1.0],
+            stops: [0.0, 0.4, 0.8, 1.0],
             colors: [
               Color(0xFFFFFFFF), // Pure white
-              Color(0xFFFDFBF7), // Extremely subtle hint of gold
-              Color(0xFFF5EFE1), // Soft, elegant light gold tint
+              Color(0xFFFDFCF9), // Very subtle shimmer
+              Color(0xFFF7F1E6), // Elegant glow
+              Color(0xFFF0E4CE), // Deepest gold glow
             ],
           ),
         ),

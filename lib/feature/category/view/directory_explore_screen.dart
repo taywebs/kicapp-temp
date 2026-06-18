@@ -32,6 +32,8 @@ class DirectoryExploreScreen extends StatefulWidget {
 class _DirectoryExploreScreenState extends State<DirectoryExploreScreen>
     with TickerProviderStateMixin {
   String _selectedFilter = 'All';
+  bool _isSearching = false;
+  final TextEditingController _searchCtrl = TextEditingController();
   late AnimationController _headerAnimCtrl;
   late Animation<double> _headerFade;
 
@@ -58,7 +60,15 @@ class _DirectoryExploreScreenState extends State<DirectoryExploreScreen>
   @override
   void dispose() {
     _headerAnimCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onSearch(String query) {
+    if (query.trim().isNotEmpty) {
+      setState(() => _isSearching = false);
+      Get.find<DirectoryController>().getDirectoryList('1', widget.categoryId, true, searchQuery: query.trim());
+    }
   }
 
   // ─── Check if listing has working_hours data in dynamic_data ───
@@ -161,34 +171,121 @@ class _DirectoryExploreScreenState extends State<DirectoryExploreScreen>
       backgroundColor: _kBg,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(context),
-      body: Column(
-        children: [
-          // AppBar placeholder
-          SizedBox(height: MediaQuery.of(context).padding.top + kToolbarHeight),
-          // Filter Row
-          FadeTransition(opacity: _headerFade, child: _buildFilterRow()),
-          // List
-          Expanded(
-            child: GetBuilder<DirectoryController>(builder: (ctrl) {
-              if (ctrl.isLoading) return _buildShimmer();
-
-              final all = ctrl.directoryList ?? [];
-              final filtered = _getFiltered(all);
-
-              if (filtered.isEmpty) return _buildEmptyState();
-
-              return ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-                itemCount: filtered.length,
-                itemBuilder: (context, index) => _AnimatedCard(
-                  index: index,
-                  child: _buildCard(context, filtered[index]),
-                ),
-              );
-            }),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: [0.0, 0.3, 0.7, 1.0],
+            colors: [
+              Color(0xFFFFFFFF),
+              Color(0xFFFCFAF6),
+              Color(0xFFF6F0E4),
+              Color(0xFFF0E8D6),
+            ],
           ),
-        ],
+        ),
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                // AppBar placeholder
+                SizedBox(height: MediaQuery.of(context).padding.top + kToolbarHeight),
+                // Filter Row
+                FadeTransition(opacity: _headerFade, child: _buildFilterRow()),
+                // List
+                Expanded(
+                  child: GetBuilder<DirectoryController>(builder: (ctrl) {
+                    if (ctrl.isLoading) return _buildShimmer();
+
+                    final all = ctrl.directoryList ?? [];
+                    final filtered = _getFiltered(all);
+
+                    if (filtered.isEmpty) return _buildEmptyState();
+
+                    return ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) => _AnimatedCard(
+                        index: index,
+                        child: _buildCard(context, filtered[index]),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+            // ─── Search Overlay ───
+            if (_isSearching)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => setState(() => _isSearching = false),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.4),
+                    child: SafeArea(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          child: GestureDetector(
+                            onTap: () {}, // Prevent closing when tapping input
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(color: _kGold.withOpacity(0.15), blurRadius: 30, offset: const Offset(0, 8)),
+                                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2)),
+                                ],
+                                border: Border.all(color: _kGold.withOpacity(0.3), width: 1.5),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.search_rounded, color: _kGold, size: 22),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchCtrl,
+                                      autofocus: true,
+                                      style: robotoMedium.copyWith(fontSize: 14, color: _kPrimary),
+                                      decoration: InputDecoration(
+                                        hintText: 'Search in ${widget.categoryName}...',
+                                        hintStyle: robotoRegular.copyWith(color: Colors.grey[400], fontSize: 14),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                      ),
+                                      onSubmitted: _onSearch,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _isSearching = false);
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.close_rounded, size: 16, color: Colors.grey[600]),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -198,9 +295,21 @@ class _DirectoryExploreScreenState extends State<DirectoryExploreScreen>
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
           child: Container(
-            color: Colors.white.withOpacity(0.85),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.92),
+                  const Color(0xFFFAF7F0).withOpacity(0.92),
+                ],
+              ),
+              border: const Border(
+                bottom: BorderSide(color: Color(0xFFE8E0D0), width: 0.5),
+              ),
+            ),
             child: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -208,12 +317,21 @@ class _DirectoryExploreScreenState extends State<DirectoryExploreScreen>
               leading: GestureDetector(
                 onTap: () => Get.back(),
                 child: Container(
-                  margin: const EdgeInsets.all(10),
+                  margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _kPrimary.withOpacity(0.06),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white, Color(0xFFF0ECE4)],
+                    ),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3)),
+                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 2, offset: const Offset(0, 1)),
+                    ],
+                    border: Border.all(color: Colors.white.withOpacity(0.9)),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded, color: _kPrimary, size: 18),
+                  child: const Icon(Icons.arrow_back_ios_new_rounded, color: _kPrimary, size: 16),
                 ),
               ),
               title: Column(
@@ -221,38 +339,55 @@ class _DirectoryExploreScreenState extends State<DirectoryExploreScreen>
                 children: [
                   Text(
                     widget.categoryName.isNotEmpty ? widget.categoryName : 'Explore',
-                    style: robotoBold.copyWith(fontSize: 17, color: _kPrimary, letterSpacing: -0.3),
+                    style: robotoBold.copyWith(fontSize: 18, color: _kPrimary, letterSpacing: -0.3),
                   ),
+                  const SizedBox(height: 2),
                   GetBuilder<LocationController>(builder: (lc) {
                     final addr = lc.getUserAddress()?.address ?? 'Select Location';
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.location_on_rounded, size: 11, color: _kGold),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            addr,
-                            style: robotoRegular.copyWith(fontSize: 11, color: Colors.grey[500]),
-                            overflow: TextOverflow.ellipsis,
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _kGoldLight.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.location_on_rounded, size: 10, color: _kGold),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              addr,
+                              style: robotoMedium.copyWith(fontSize: 10, color: Color(0xFF8B7A5E)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     );
                   }),
                 ],
               ),
               actions: [
-                Container(
-                  margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(
-                    color: _kPrimary.withOpacity(0.06),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.search_rounded, color: _kPrimary, size: 20),
-                    onPressed: () {},
+                GestureDetector(
+                  onTap: () => setState(() => _isSearching = true),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.white, Color(0xFFF0ECE4)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3)),
+                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 2, offset: const Offset(0, 1)),
+                      ],
+                      border: Border.all(color: Colors.white.withOpacity(0.9)),
+                    ),
+                    child: const Icon(Icons.search_rounded, color: _kPrimary, size: 20),
                   ),
                 ),
               ],
@@ -338,12 +473,19 @@ class _DirectoryExploreScreenState extends State<DirectoryExploreScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.6), width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 24,
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 20,
               spreadRadius: 0,
               offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: const Color(0xFFC5A059).withOpacity(0.06),
+              blurRadius: 30,
+              spreadRadius: -4,
+              offset: const Offset(0, 12),
             ),
           ],
         ),
