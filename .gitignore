@@ -54,6 +54,10 @@ app.*.map.json
 ios/GoogleService-Info.plist
 android/app/google-services.json
 
+# CocoaPods lock file (causes version conflicts on CI)
+ios/Podfile.lock
+
+
 # iOS Certificates & Provisioning Profiles
 *.p12
 *.cer
