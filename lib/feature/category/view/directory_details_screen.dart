@@ -227,17 +227,22 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Avatar
+                                    // Avatar - Premium 3D Card
                                     Container(
-                                      height: 75,
-                                      width: 75,
+                                      height: 78,
+                                      width: 78,
+                                      padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(18),
                                         color: Colors.white,
-                                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                                        border: Border.all(color: Colors.grey.withOpacity(0.08), width: 1.5),
+                                        boxShadow: [
+                                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 6)),
+                                          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+                                        ],
                                       ),
                                       child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(12),
                                         child: _buildAvatar(d),
                                       ),
                                     ),
@@ -326,40 +331,74 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                         // ─── Extract Dynamic Data ───
                         Builder(
                           builder: (context) {
-                            final Map dynamicMap = (d.dynamicData is Map) ? (d.dynamicData as Map) : {};
+                            final Map<String, dynamic> dynamicMap = (d.dynamicData is Map) ? Map<String, dynamic>.from(d.dynamicData as Map) : {};
                             final Map<String, List> menuTabs = {};
+                            final Map<String, List> tagsLists = {};
+                            final List<Map<String, dynamic>> doctorsList = [];
+                            final List<Map<String, dynamic>> productsList = [];
+                            final List<Map<String, dynamic>> packagesList = [];
                             final Map<String, dynamic> otherDynamicFields = {};
+                            final List<String> dynamicFeatures = [];
+
+                            // Hidden keys that are handled separately
+                            final Set<String> _hiddenKeys = {'currency', 'free_delivery', 'online_payment', 'cash_on_delivery'};
 
                             for (var entry in dynamicMap.entries) {
+                              if (_hiddenKeys.contains(entry.key.toString().toLowerCase())) continue;
+                              
                               final val = entry.value;
                               final keyLower = entry.key.toString().toLowerCase();
 
                               if (val is Map) {
-                                // Check if it's a menu (values are Lists)
                                 bool isMenu = (val.values.every((v) => v is List));
-                                if (isMenu || keyLower == 'menu') {
-                                  for (var menuEntry in val.entries) {
-                                    if (menuEntry.value is List) {
-                                      menuTabs[menuEntry.key.toString()] = menuEntry.value as List;
+                                if (isMenu || keyLower == 'menu' || keyLower.contains('menu')) {
+                                  for (var k in val.keys) {
+                                    if (val[k] is List) {
+                                      menuTabs[k.toString()] = val[k] as List;
+                                    } else {
+                                      menuTabs[k.toString()] = [val[k]];
                                     }
                                   }
                                 } else {
                                   otherDynamicFields[entry.key.toString()] = val;
                                 }
+                              } else if (val is List && val.isNotEmpty) {
+                                // Detect structured lists (doctors/products) vs simple tags
+                                if (val.first is Map) {
+                                  final firstItem = Map<String, dynamic>.from(val.first as Map);
+                                  if (firstItem.containsKey('name') && (firstItem.containsKey('specialty') || firstItem.containsKey('fee') || firstItem.containsKey('qualifications'))) {
+                                    // Doctors list
+                                    for (var item in val) {
+                                      if (item is Map) doctorsList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else if (firstItem.containsKey('package_title')) {
+                                    // Packages list
+                                    for (var item in val) {
+                                      if (item is Map) packagesList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else if (firstItem.containsKey('title') || firstItem.containsKey('price')) {
+                                    // Products list
+                                    for (var item in val) {
+                                      if (item is Map) productsList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else {
+                                    tagsLists[entry.key.toString()] = val;
+                                  }
+                                } else {
+                                  tagsLists[entry.key.toString()] = val;
+                                }
                               } else if (val is List) {
-                                menuTabs[entry.key.toString()] = val;
-                              } else {
+                                tagsLists[entry.key.toString()] = val;
+                              } else if (val == true || val == 1 || val == '1' || val == 'true') {
+                                dynamicFeatures.add(entry.key.toString());
+                              } else if (val != null && val != false && val != 0 && val != '0' && val != 'false' && val.toString().trim().isNotEmpty) {
                                 otherDynamicFields[entry.key.toString()] = val;
                               }
                             }
 
                             final String currency = dynamicMap['currency']?.toString() ?? '\$';
-                            final bool hasFreeDelivery = dynamicMap['free_delivery'] == 1 || dynamicMap['free_delivery'] == true || dynamicMap['free_delivery'] == '1';
                             final bool hasOnlinePayment = dynamicMap['online_payment'] == 1 || dynamicMap['online_payment'] == true || dynamicMap['online_payment'] == '1';
                             final bool hasCashOnDelivery = dynamicMap['cash_on_delivery'] == 1 || dynamicMap['cash_on_delivery'] == true || dynamicMap['cash_on_delivery'] == '1';
-                            // Exclude internal keys from display
-                            final Set<String> _hiddenKeys = {'currency', 'free_delivery', 'online_payment', 'cash_on_delivery'};
-                            otherDynamicFields.removeWhere((k, v) => _hiddenKeys.contains(k));
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,9 +407,19 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                 if (menuTabs.isNotEmpty)
                                   _MenuTabsSection(menuTabs: menuTabs, currency: currency),
 
-                                // 1b. Free Delivery badge: now inside slider → removed from here
+                                // 1b. Doctors Section
+                                if (doctorsList.isNotEmpty)
+                                  _buildDoctorsSection(doctorsList, currency),
 
-                                // 1c. Payment Methods Card
+                                // 1c. Products/Medicines Section
+                                if (productsList.isNotEmpty)
+                                  _buildProductsSection(productsList, currency),
+
+                                // 1d. Packages Section
+                                if (packagesList.isNotEmpty)
+                                  _buildPackagesSection(packagesList, currency),
+
+                                // 1e. Payment Methods Card
                                 if (hasOnlinePayment || hasCashOnDelivery)
                                   _sectionCard(
                                     child: Column(
@@ -385,7 +434,6 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                               const SizedBox(width: 10),
                                               Text('Online Payment', style: robotoBold.copyWith(fontSize: 14, color: _kPrimary)),
                                               const Spacer(),
-                                              // Payment card icons
                                               _paymentBadge('VISA', const Color(0xFF1A1F71)),
                                               const SizedBox(width: 6),
                                               _paymentBadge('MC', const Color(0xFFEB001B)),
@@ -418,7 +466,7 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                   ),
 
                                 // 2. Features & Amenities
-                                if (d.features != null && d.features!.isNotEmpty)
+                                if ((d.features != null && d.features!.isNotEmpty) || dynamicFeatures.isNotEmpty)
                                   _sectionCard(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,36 +476,54 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                         Wrap(
                                           spacing: 12,
                                           runSpacing: 12,
-                                          children: d.features!.map((feature) {
-                                            return Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                border: Border.all(color: Colors.grey.shade200),
-                                                borderRadius: BorderRadius.circular(12),
-                                                boxShadow: [
-                                                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
-                                                ],
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(Icons.check_circle_rounded, size: 18, color: _kGold),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    feature.toString(),
-                                                    style: robotoMedium.copyWith(fontSize: 14, color: _kPrimary),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }).toList(),
+                                          children: [
+                                            if (d.features != null) ...d.features!.map((f) => _featureChip(f)),
+                                            ...dynamicFeatures.map((f) => _featureChip(f)),
+                                          ],
                                         ),
                                       ],
                                     ),
                                   ),
 
-                                // 3. Working hours / Other dynamic fields — no section title
+                                // 2b. Tags/Chips Lists
+                                if (tagsLists.isNotEmpty)
+                                  ...tagsLists.entries.map((entry) {
+                                    return _sectionCard(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(_getDynamicIcon(entry.key), color: _kGold, size: 20),
+                                              const SizedBox(width: 8),
+                                              _sectionTitle(_formatKey(entry.key)),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Wrap(
+                                            spacing: 10,
+                                            runSpacing: 10,
+                                            children: entry.value.map((item) {
+                                              return Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: _kGold.withOpacity(0.08),
+                                                  border: Border.all(color: _kGold.withOpacity(0.3)),
+                                                  borderRadius: BorderRadius.circular(50),
+                                                ),
+                                                child: Text(
+                                                  item.toString(),
+                                                  style: robotoMedium.copyWith(fontSize: 13, color: _kPrimary),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+
+                                // 3. Other dynamic fields
                                 if (otherDynamicFields.isNotEmpty)
                                   _sectionCard(
                                     child: Column(
@@ -654,7 +720,53 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
   );
 }
 
-  // ─── Helper Widgets ───
+  // ─── Helper Widgets & Methods ───
+
+  Widget _featureChip(String feature) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle_rounded, size: 18, color: _kGold),
+          const SizedBox(width: 8),
+          Text(_formatKey(feature), style: robotoMedium.copyWith(fontSize: 14, color: _kPrimary)),
+        ],
+      ),
+    );
+  }
+
+  IconData _getDynamicIcon(String key) {
+    key = key.toLowerCase();
+    if (key.contains('time') || key.contains('hour') || key.contains('duration')) return Icons.access_time_rounded;
+    if (key.contains('age') || key.contains('people') || key.contains('doctor') || key.contains('specialt')) return Icons.people_alt_rounded;
+    if (key.contains('price') || key.contains('fee') || key.contains('ticket')) return Icons.local_offer_rounded;
+    if (key.contains('delivery')) return Icons.local_shipping_rounded;
+    if (key.contains('wifi') || key.contains('internet')) return Icons.wifi_rounded;
+    if (key.contains('park')) return Icons.local_parking_rounded;
+    if (key.contains('music')) return Icons.music_note_rounded;
+    if (key.contains('insurance')) return Icons.health_and_safety_rounded;
+    if (key.contains('card') || key.contains('pay')) return Icons.credit_card_rounded;
+    if (key.contains('location') || key.contains('address')) return Icons.location_on_rounded;
+    if (key.contains('phone') || key.contains('contact')) return Icons.phone_rounded;
+    return Icons.info_outline_rounded;
+  }
+
+  String _formatKey(String key) {
+    if (key.isEmpty) return key;
+    return key.replaceAll('_', ' ').split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
+  }
 
   Widget _paymentBadge(String label, Color color) {
     return Container(
@@ -783,64 +895,25 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
   }
 
   Widget _buildAvatar(DirectoryModel d) {
-    // Cover Image / Logo is stored as 'thumbnail' in DB, returned as 'cover_image_full_path' in API
     final String? coverPath = d.coverImageFullPath;
     final String? logoPath = d.logoUrl;
     final String? thumbPath = d.thumbnail;
     
     if (coverPath != null && coverPath.isNotEmpty && !coverPath.contains('placeholder')) {
-      return CustomImage(image: coverPath, fit: BoxFit.cover, placeholder: Images.placeholder);
+      return CustomImage(image: coverPath, fit: BoxFit.contain, placeholder: Images.placeholder);
     } else if (logoPath != null && logoPath.isNotEmpty) {
-      return CustomImage(image: logoPath, fit: BoxFit.cover, placeholder: Images.placeholder);
+      return CustomImage(image: logoPath, fit: BoxFit.contain, placeholder: Images.placeholder);
     } else if (thumbPath != null && thumbPath.isNotEmpty) {
-      return CustomImage(image: thumbPath, fit: BoxFit.cover, placeholder: Images.placeholder);
+      return CustomImage(image: thumbPath, fit: BoxFit.contain, placeholder: Images.placeholder);
     }
     return const Icon(Icons.storefront_rounded, size: 40, color: Colors.grey);
   }
 
-  Widget _renderDynamicField(String key, dynamic val) {
-    if (val == null || val.toString().isEmpty) return const SizedBox();
-
-    String formattedKey = key.split('_').map((word) => word.capitalizeFirst).join(' ');
+  Widget _renderDynamicField(String key, dynamic value) {
+    if (value == null || value.toString().isEmpty) return const SizedBox();
 
     // ─── Handle Map (e.g. Working Hours) ───
-    if (val is List) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(formattedKey, style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: val.map((e) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.check_circle_rounded, color: _kGold, size: 16),
-                      const SizedBox(width: 8),
-                      Text(e.toString(), style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[800])),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      );
-    } else if (val is Map) {
+    if (value is Map) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 24.0),
         child: Column(
@@ -851,10 +924,10 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(color: _kGoldLight, borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.access_time_filled_rounded, size: 18, color: _kGold),
+                  child: Icon(_getDynamicIcon(key), size: 18, color: _kGold),
                 ),
                 const SizedBox(width: 12),
-                Text(formattedKey, style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
+                Text(_formatKey(key), style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
               ],
             ),
             const SizedBox(height: 16),
@@ -867,26 +940,56 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10)],
               ),
               child: Column(
-                children: val.entries.map((e) {
+                children: value.entries.map((e) {
                   String day = e.key.toString();
                   var data = e.value;
                   if (data is Map) {
                     bool active = data['active'] == '1' || data['active'] == 1 || data['active'] == true;
-                    String timeStr = active ? '${data['start'] ?? ''} - ${data['end'] ?? ''}' : 'Closed';
+                    bool hasHours = active && data['start'] != null && data['start'].toString().isNotEmpty && data['end'] != null && data['end'].toString().isNotEmpty;
+                    
+                    Widget timeWidget;
+                    if (!active) {
+                      timeWidget = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.red.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+                        child: Text('Closed', style: robotoMedium.copyWith(fontSize: 13, color: Colors.red)),
+                      );
+                    } else if (hasHours) {
+                      timeWidget = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: _kNeutral, borderRadius: BorderRadius.circular(8)),
+                        child: Text('${data['start']} - ${data['end']}', style: robotoMedium.copyWith(fontSize: 13, color: _kBlue)),
+                      );
+                    } else {
+                      // 24 Hours Open Glassmorphism Badge
+                      timeWidget = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [const Color(0xFF059669).withOpacity(0.15), const Color(0xFF10b981).withOpacity(0.05)]),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF34d399).withOpacity(0.5), width: 1),
+                          boxShadow: [
+                            BoxShadow(color: const Color(0xFF059669).withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.all_inclusive_rounded, size: 14, color: Color(0xFF059669)),
+                            const SizedBox(width: 4),
+                            Text('24 Hours', style: robotoBold.copyWith(fontSize: 12, color: const Color(0xFF059669))),
+                          ],
+                        ),
+                      );
+                    }
+
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(day, style: robotoMedium.copyWith(fontSize: 15, color: _kPrimary)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: active ? _kNeutral : Colors.red.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(timeStr, style: robotoMedium.copyWith(fontSize: 13, color: active ? _kBlue : Colors.red)),
-                          ),
+                          timeWidget,
                         ],
                       ),
                     );
@@ -898,55 +1001,30 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
           ],
         ),
       );
-    } else if (key.toLowerCase().contains('working')) {
-      // If working hours came back as a string, display it safely
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: _kGoldLight, borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.access_time_filled_rounded, size: 18, color: _kGold),
-                ),
-                const SizedBox(width: 12),
-                Text(formattedKey, style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(val.toString(), style: robotoMedium.copyWith(fontSize: 14, color: Colors.grey[700])),
-          ],
-        ),
-      );
     }
 
     // ─── Handle Standard Text ───
-    String strVal = val.toString();
-    if (strVal == '1' || strVal == '0') {
-      strVal = strVal == '1' ? 'Yes' : 'No';
-    }
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: _kNeutral, borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.info_outline_rounded, size: 18, color: _kBlue),
+            decoration: BoxDecoration(color: _kGold.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(_getDynamicIcon(key), size: 18, color: _kGold),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(formattedKey, style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[500])),
+                Text(_formatKey(key), style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[500])),
                 const SizedBox(height: 4),
-                Text(strVal, style: robotoBold.copyWith(fontSize: 15, color: _kPrimary, height: 1.4)),
+                Text(value.toString(), style: robotoBold.copyWith(fontSize: 15, color: _kPrimary, height: 1.4)),
               ],
             ),
           ),
@@ -986,6 +1064,418 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
           ),
           const SizedBox(height: 12),
           Text(comment, style: robotoRegular.copyWith(fontSize: 14, color: Colors.grey[600], height: 1.5)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDoctorsSection(List<Map<String, dynamic>> doctors, String currency) {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.medical_services_rounded, color: Color(0xFF0369a1), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Doctors & Specialists'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: doctors.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final doc = doctors[index];
+              final String name = doc['name']?.toString() ?? '';
+              final String specialty = doc['specialty']?.toString() ?? '';
+              final String fee = doc['fee']?.toString() ?? '';
+              final String quals = doc['qualifications']?.toString() ?? '';
+              final String hours = doc['hours']?.toString() ?? '';
+              String image = doc['image']?.toString() ?? '';
+              
+              if (image.isNotEmpty && !image.startsWith('http')) {
+                image = '${AppConstants.baseUrl}/storage/directory/dynamic/$image';
+              }
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFbae6fd)),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFF0369a1).withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Avatar
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF0369a1).withOpacity(0.3), width: 2),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: image.isNotEmpty ? CustomImage(image: image, fit: BoxFit.cover, placeholder: Images.placeholder) : const Icon(Icons.person, color: Colors.grey),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: robotoBold.copyWith(fontSize: 15, color: const Color(0xFF0369a1))),
+                          if (specialty.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(specialty, style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[600])),
+                          ],
+                          if (quals.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(quals, style: robotoRegular.copyWith(fontSize: 12, color: Colors.grey[500])),
+                          ],
+                          if (hours.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.access_time_rounded, size: 14, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(hours, style: robotoRegular.copyWith(fontSize: 12, color: Colors.grey[600])),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Fee Badge
+                    if (fee.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('Consultation Fee', style: robotoMedium.copyWith(fontSize: 10, color: Colors.grey[500])),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFf0f9ff),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFbae6fd)),
+                            ),
+                            child: buildPriceText(currency, fee, 13, const Color(0xFF0369a1)),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductsSection(List<Map<String, dynamic>> products, String currency) {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.vaccines_rounded, color: Color(0xFF15803d), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Products & Medicines'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.72,
+            ),
+            itemCount: products.length,
+            itemBuilder: (context, index) {
+              final prod = products[index];
+              final String title = prod['title']?.toString() ?? '';
+              final String price = prod['price']?.toString() ?? '';
+              final String desc = prod['description']?.toString() ?? '';
+              String image = prod['image']?.toString() ?? '';
+              
+              if (image.isNotEmpty && !image.startsWith('http')) {
+                image = '${AppConstants.baseUrl}/storage/directory/dynamic/$image';
+              }
+
+              bool hasDiscount = prod['has_discount'] == '1' || prod['has_discount'] == 1 || prod['has_discount'] == true;
+              bool fastDelivery = prod['fast_delivery'] == '1' || prod['fast_delivery'] == 1 || prod['fast_delivery'] == true;
+              final String deliveryTime = prod['delivery_time']?.toString() ?? '';
+              final String discountPercent = prod['discount_percent']?.toString() ?? '';
+
+              double originalPrice = double.tryParse(price) ?? 0;
+              double discountPct = double.tryParse(discountPercent) ?? 0;
+              double finalPrice = hasDiscount && discountPct > 0
+                  ? originalPrice * (1 - discountPct / 100)
+                  : originalPrice;
+
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFbbf7d0)),
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFF15803d).withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 6)),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image Header with padding
+                      Expanded(
+                        flex: 5,
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFf0fdf4),
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(11)),
+                              ),
+                              child: image.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: CustomImage(image: image, fit: BoxFit.cover, placeholder: Images.placeholder),
+                                    )
+                                  : const Center(child: Icon(Icons.medication_rounded, size: 40, color: Color(0xFF86efac))),
+                            ),
+                            // Discount % badge
+                            if (hasDiscount && discountPct > 0)
+                              Positioned(
+                                top: 10, left: 10,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[600],
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '-${discountPct.toStringAsFixed(0)}%',
+                                    style: robotoBold.copyWith(fontSize: 10, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Info
+                      Expanded(
+                        flex: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(title, style: robotoBold.copyWith(fontSize: 12, color: const Color(0xFF15803d), height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                  if (desc.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(desc, style: robotoRegular.copyWith(fontSize: 10, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  ],
+                                ],
+                              ),
+                              // Price area
+                              if (price.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (hasDiscount && discountPct > 0) ...[
+                                        Text(
+                                          '$currency $price',
+                                          style: robotoRegular.copyWith(
+                                            fontSize: 10,
+                                            color: Colors.grey[400],
+                                            decoration: TextDecoration.lineThrough,
+                                            decorationColor: Colors.grey[400],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 1),
+                                      ],
+                                      buildPriceText(
+                                        currency,
+                                        (hasDiscount && discountPct > 0) ? finalPrice.toStringAsFixed(2) : price,
+                                        13,
+                                        hasDiscount && discountPct > 0 ? Colors.red[700]! : _kPrimary,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Fast Delivery Banner
+                      if (fastDelivery)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFE000),
+                            borderRadius: BorderRadius.vertical(bottom: Radius.circular(11)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.electric_bolt_rounded, size: 11, color: Color(0xFF1a1a1a)),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  deliveryTime.isNotEmpty ? 'GET IN $deliveryTime' : 'FAST DELIVERY',
+                                  style: robotoBold.copyWith(fontSize: 9, color: const Color(0xFF1a1a1a), letterSpacing: 0.3),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackagesSection(List<Map<String, dynamic>> packages, String currency) {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.favorite_rounded, color: Color(0xFF7e22ce), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Health Packages'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: packages.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final pkg = packages[index];
+              final String title = pkg['package_title']?.toString() ?? '';
+              final String price = pkg['price']?.toString() ?? '';
+              final String desc = pkg['description']?.toString() ?? '';
+              String image = pkg['image']?.toString() ?? '';
+              
+              if (image.isNotEmpty && !image.startsWith('http')) {
+                image = '${AppConstants.baseUrl}/storage/directory/dynamic/$image';
+              }
+
+              String colorHex = pkg['color']?.toString() ?? '#7e22ce';
+              colorHex = colorHex.replaceAll('#', '');
+              if (colorHex.length == 6) {
+                colorHex = 'FF$colorHex';
+              }
+              Color pkgColor = Color(int.parse(colorHex, radix: 16));
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: pkgColor.withOpacity(0.3)),
+                  boxShadow: [
+                    BoxShadow(color: pkgColor.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (image.isNotEmpty)
+                      Container(
+                        height: 140,
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(19)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
+                          child: CustomImage(image: image, fit: BoxFit.cover, placeholder: Images.placeholder),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(title, style: robotoBold.copyWith(fontSize: 16, color: pkgColor)),
+                              ),
+                              if (price.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(colors: [pkgColor.withOpacity(0.6), pkgColor]),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: buildPriceText(currency, price, 14, Colors.white),
+                                ),
+                            ],
+                          ),
+                          if (desc.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text('Included Tests & Features:', style: robotoBold.copyWith(fontSize: 13, color: Colors.grey[700])),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8, runSpacing: 8,
+                              children: desc.split(',').map((f) {
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle_rounded, size: 14, color: pkgColor),
+                                    const SizedBox(width: 4),
+                                    Text(f.trim(), style: robotoMedium.copyWith(fontSize: 12, color: Colors.grey[800])),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1170,43 +1660,6 @@ class _MenuTabsSection extends StatefulWidget {
 
 class _MenuTabsSectionState extends State<_MenuTabsSection> {
   int _selectedIndex = 0;
-
-  Widget _buildPriceText(String currency, String price, double fontSize, Color color) {
-    if (currency == 'AED') {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Custom UAE Dirham Symbol
-          SizedBox(
-            height: fontSize * 1.2,
-            width: fontSize * 0.85,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Text('D', style: robotoBold.copyWith(fontSize: fontSize, color: color, height: 1)),
-                Positioned(
-                  top: fontSize * 0.50,
-                  left: 0,
-                  right: fontSize * 0.15,
-                  child: Container(height: fontSize * 0.1, color: color),
-                ),
-                Positioned(
-                  top: fontSize * 0.70,
-                  left: 0,
-                  right: fontSize * 0.15,
-                  child: Container(height: fontSize * 0.1, color: color),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(price, style: robotoBold.copyWith(fontSize: fontSize, color: color)),
-        ],
-      );
-    }
-    return Text('$currency$price', style: robotoBold.copyWith(fontSize: fontSize, color: color));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1410,7 +1863,7 @@ class _MenuTabsSectionState extends State<_MenuTabsSection> {
                                     BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4, offset: const Offset(0, 2)),
                                   ],
                                 ),
-                                child: _buildPriceText(currency, price, 13, Colors.white),
+                                child: buildPriceText(currency, price, 13, Colors.white),
                               ),
                             ),
                         ],
@@ -1576,7 +2029,7 @@ class _MenuTabsSectionState extends State<_MenuTabsSection> {
                     BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 14, offset: const Offset(0, 5)),
                   ],
                 ),
-                child: _buildPriceText(currency, price, 20, Colors.white),
+                child: buildPriceText(currency, price, 20, Colors.white),
               ),
             ],
             const SizedBox(height: 32),
@@ -1665,4 +2118,30 @@ class _AnimatedExtrasPillState extends State<_AnimatedExtrasPill> {
       ),
     );
   }
+}
+
+Widget buildPriceText(String currency, String price, double fontSize, Color color) {
+  if (currency == 'AED') {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          height: fontSize * 1.2,
+          width: fontSize * 0.85,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text('D', style: robotoBold.copyWith(fontSize: fontSize, color: color, height: 1)),
+              Positioned(top: fontSize * 0.50, left: 0, right: fontSize * 0.15, child: Container(height: fontSize * 0.1, color: color)),
+              Positioned(top: fontSize * 0.70, left: 0, right: fontSize * 0.15, child: Container(height: fontSize * 0.1, color: color)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(price, style: robotoBold.copyWith(fontSize: fontSize, color: color)),
+      ],
+    );
+  }
+  return Text('$currency$price', style: robotoBold.copyWith(fontSize: fontSize, color: color));
 }
