@@ -809,70 +809,75 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (deliveryTime.isNotEmpty || hasFastDelivery || hasFreeDelivery) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        if (deliveryTime.isNotEmpty)
-                          Row(
+                  Builder(builder: (context) {
+                    List<Widget> allBadges = [];
+                    if (deliveryTime.isNotEmpty) {
+                      allBadges.add(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.timer_rounded, size: 12, color: Colors.grey[500]),
+                            const SizedBox(width: 2),
+                            Text(
+                              deliveryTime,
+                              style: robotoMedium.copyWith(fontSize: 10, color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    if (hasFastDelivery) {
+                      allBadges.add(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.timer_rounded, size: 12, color: Colors.grey[500]),
+                              const _SpeedingIcon(icon: Icons.two_wheeler_rounded, color: Color(0xFFD97706)),
                               const SizedBox(width: 2),
-                              Text(
-                                deliveryTime,
-                                style: robotoMedium.copyWith(fontSize: 10, color: Colors.grey[600]),
-                              ),
+                              Text('Fast Delivery', style: robotoBold.copyWith(fontSize: 9, color: Color(0xFFD97706))),
                             ],
                           ),
-                        if (hasFastDelivery)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFFFDE68A)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const _SpeedingIcon(icon: Icons.two_wheeler_rounded, color: Color(0xFFD97706)),
-                                const SizedBox(width: 2),
-                                Text('Fast Delivery', style: robotoBold.copyWith(fontSize: 9, color: Color(0xFFD97706))),
-                              ],
-                            ),
+                        ),
+                      );
+                    }
+                    if (hasFreeDelivery) {
+                      allBadges.add(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF86EFAC)),
                           ),
-                        if (hasFreeDelivery)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDF4),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFF86EFAC)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.local_shipping_rounded, size: 10, color: Color(0xFF059669)),
-                                const SizedBox(width: 2),
-                                Text('Free Delivery', style: robotoBold.copyWith(fontSize: 9, color: Color(0xFF059669))),
-                              ],
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.local_shipping_rounded, size: 10, color: Color(0xFF059669)),
+                              const SizedBox(width: 2),
+                              Text('Free Delivery', style: robotoBold.copyWith(fontSize: 9, color: Color(0xFF059669))),
+                            ],
                           ),
-                      ],
-                    ),
-                  ],
-                  Builder(builder: (context) {
-                    final List<dynamic> _badges = dynMap['badges'] is List ? dynMap['badges'] : [];
-                    if (_badges.isEmpty) return const SizedBox();
+                        ),
+                      );
+                    }
+                    
+                    final List<dynamic> _dynamicBadges = dynMap['badges'] is List ? dynMap['badges'] : [];
+                    allBadges.addAll(_dynamicBadges.map((b) => _buildMiniBadge(b.toString())));
+
+                    if (allBadges.isEmpty) return const SizedBox();
+
                     return Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: _badges.take(3).map((b) => _buildMiniBadge(b.toString())).toList(),
+                        children: allBadges.take(3).toList(),
                       ),
                     );
                   }),
