@@ -251,121 +251,49 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: SizedBox(
-                        height: 240,
-                  child: Row(
-                    children: [
-                      // Left large card
-                      Expanded(
-                        flex: 1,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1.2),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5)),
-                            ],
-                              image: const DecorationImage(
-                                image: NetworkImage('https://images.unsplash.com/photo-1601362840469-51e4d8d58785?q=80&w=600&auto=format&fit=crop'),
-                                fit: BoxFit.cover,
-                              ),
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                              ),
-                            ),
-                            padding: const EdgeInsets.all(16),
-                            alignment: Alignment.bottomLeft,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Keep It Clean', style: robotoBold.copyWith(color: Colors.white, fontSize: 16)),
-                                const SizedBox(height: 4),
-                                Text('Professional Deep Cleaning', style: robotoRegular.copyWith(color: Colors.white70, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Right column
-                      Expanded(
-                        flex: 1,
-                        child: Column(
+                        height: 260,
+                        child: Row(
                           children: [
-                            // Top horizontal card (Mobile Wash)
                             Expanded(
                               flex: 1,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1.2),
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5)),
-                                  ],
-                                  image: const DecorationImage(
-                                    image: NetworkImage('https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=600&auto=format&fit=crop'),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.all(12),
-                                  alignment: Alignment.bottomLeft,
-                                  child: Text('Mobile Wash', style: robotoBold.copyWith(color: Colors.white, fontSize: 14)),
-                                ),
+                              child: _build3DHeroCard(
+                                title: 'Keep It Clean',
+                                subtitle: 'Luxury Deep Cleaning',
+                                imageUrl: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=600&auto=format&fit=crop',
+                                height: 260,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            // Bottom horizontal card (AC Repair or Laundry)
+                            const SizedBox(width: 14),
                             Expanded(
                               flex: 1,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1.2),
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5)),
-                                  ],
-                                  image: const DecorationImage(
-                                    image: NetworkImage('https://images.unsplash.com/photo-1563453392212-326f5e854473?q=80&w=600&auto=format&fit=crop'), // Aesthetic AC/Home Services image
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    flex: 1,
+                                    child: _build3DHeroCard(
+                                      title: 'Mobile Wash',
+                                      subtitle: 'Premium Car Detailing',
+                                      imageUrl: 'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=600&auto=format&fit=crop',
+                                      height: double.infinity,
                                     ),
                                   ),
-                                  padding: const EdgeInsets.all(12),
-                                  alignment: Alignment.bottomLeft,
-                                  child: Text('Laundry & Care', style: robotoBold.copyWith(color: Colors.white, fontSize: 14)),
-                                ),
+                                  const SizedBox(height: 14),
+                                  Expanded(
+                                    flex: 1,
+                                    child: _build3DHeroCard(
+                                      title: 'Laundry Care',
+                                      subtitle: 'Crisp & Clean',
+                                      imageUrl: 'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?q=80&w=600&auto=format&fit=crop',
+                                      height: double.infinity,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    ),
             ],
           ),
         ),
@@ -935,6 +863,53 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                           ),
                       ],
                     ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget _build3DHeroCard({required String title, required String subtitle, required String imageUrl, required double height, double? width}) {
+    return Container(
+      height: height,
+      width: width ?? double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+          const BoxShadow(color: Colors.white24, blurRadius: 4, offset: Offset(-2, -2)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomImage(image: imageUrl, fit: BoxFit.cover),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.0, 0.4, 1.0],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.2), Colors.black.withOpacity(0.85)],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: robotoBold.copyWith(color: Colors.white, fontSize: 16, height: 1.1)),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: robotoMedium.copyWith(color: Colors.white70, fontSize: 11)),
                   ],
                 ],
               ),

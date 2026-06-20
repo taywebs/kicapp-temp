@@ -80,9 +80,9 @@ class _DirectoryMainScreenState extends State<DirectoryMainScreen> {
       bottomNavigationBar: SafeArea(
         child: Container(
           margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          height: 60,
+          height: 54,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
                 color: _kPrimary.withOpacity(0.06),
@@ -92,13 +92,13 @@ class _DirectoryMainScreenState extends State<DirectoryMainScreen> {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: _kNeutral.withOpacity(0.5),
                     width: 1.0,
@@ -128,30 +128,18 @@ class _DirectoryMainScreenState extends State<DirectoryMainScreen> {
       onTap: () => _setPage(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutQuint,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
         padding: isSelected 
-          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
           : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        margin: EdgeInsets.only(bottom: isSelected ? 4 : 0),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFFFDF94), // Light gold
-                    Color(0xFFD4AF37), // Pure gold
-                    Color(0xFFAA7C11), // Deep gold
-                  ],
-                )
-              : null,
-          color: isSelected ? null : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? _kPrimary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFFD4AF37).withOpacity(0.3),
+                    color: _kPrimary.withOpacity(0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   )
@@ -163,14 +151,14 @@ class _DirectoryMainScreenState extends State<DirectoryMainScreen> {
           children: [
             Icon(
               isSelected ? solidIcon : outlineIcon,
-              size: 22,
-              color: isSelected ? Colors.black87 : Colors.grey[400],
+              size: 20,
+              color: isSelected ? Colors.white : Colors.grey[400],
             ),
             if (isSelected) ...[
               const SizedBox(width: 6),
               Text(
                 label,
-                style: robotoBold.copyWith(fontSize: 12, color: Colors.black87),
+                style: robotoBold.copyWith(fontSize: 12, color: Colors.white),
               ),
             ]
           ],

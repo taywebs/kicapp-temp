@@ -302,6 +302,18 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                               ),
                                             ],
                                           ),
+                                          Builder(builder: (context) {
+                                            final List<dynamic> _badges = (_outerDynMap['badges'] is List) ? _outerDynMap['badges'] : [];
+                                            if (_badges.isEmpty) return const SizedBox();
+                                            return Padding(
+                                              padding: const EdgeInsets.only(top: 12),
+                                              child: Wrap(
+                                                spacing: 6,
+                                                runSpacing: 6,
+                                                children: _badges.map((b) => _buildProviderBadge(b.toString())).toList(),
+                                              ),
+                                            );
+                                          }),
                                         ],
                                       ),
                                     ),
@@ -1715,6 +1727,51 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
     } else {
       customSnackBar('Could not open maps');
     }
+  }
+
+  Widget _buildProviderBadge(String badgeText) {
+    IconData icon = Icons.check_circle_rounded;
+    Color color = const Color(0xFF0052CC); // default blue
+    
+    if (badgeText.toLowerCase().contains('24/7')) {
+      icon = Icons.access_time_filled;
+      color = const Color(0xFF059669); // green
+    } else if (badgeText.toLowerCase().contains('emergency')) {
+      icon = Icons.local_hospital_rounded;
+      color = const Color(0xFFDC2626); // red
+    } else if (badgeText.toLowerCase().contains('top rated')) {
+      icon = Icons.star_rounded;
+      color = _kGold;
+    } else if (badgeText.toLowerCase().contains('verified')) {
+      icon = Icons.verified_rounded;
+      color = const Color(0xFF2563EB); // blue
+    } else if (badgeText.toLowerCase().contains('insurance')) {
+      icon = Icons.health_and_safety_rounded;
+      color = const Color(0xFF0891B2); // cyan
+    } else if (badgeText.toLowerCase().contains('online')) {
+      icon = Icons.computer_rounded;
+      color = const Color(0xFF7C3AED); // purple
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        border: Border.all(color: color.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            badgeText,
+            style: robotoBold.copyWith(fontSize: 11, color: color),
+          ),
+        ],
+      ),
+    );
   }
 }
 
