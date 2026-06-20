@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:demandium/helper/route_helper.dart';
 import 'package:demandium/utils/core_export.dart';
+import 'dart:ui' as dart_ui;
 import 'package:get/get.dart';
 import 'package:demandium/feature/category/controller/directory_controller.dart';
 import 'package:demandium/feature/category/model/directory_model.dart';
@@ -514,11 +515,11 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                 }
 
                 return SizedBox(
-                  height: 270,
+                  height: 310,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), // Added vertical padding for shadow
                     itemCount: directoryController.directoryList!.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 16),
                     itemBuilder: (context, index) {
@@ -793,7 +794,14 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
       imageUrl = directory.imagesFullPath!.first;
     } else if (directory.coverImageFullPath != null && directory.coverImageFullPath!.isNotEmpty) {
       imageUrl = directory.coverImageFullPath!;
+    } else if (directory.thumbnail != null && directory.thumbnail!.isNotEmpty) {
+      imageUrl = directory.thumbnail!;
     }
+
+    final Map dynMap = (directory.dynamicData is Map) ? (directory.dynamicData as Map) : {};
+    final bool hasFreeDelivery = dynMap['free_delivery'] == 1 || dynMap['free_delivery'] == '1' || dynMap['free_delivery'] == true;
+    final bool hasFastDelivery = dynMap['fast_delivery'] == 1 || dynMap['fast_delivery'] == '1' || dynMap['fast_delivery'] == true;
+    final String deliveryTime = dynMap['delivery_time']?.toString() ?? '';
 
     return GestureDetector(
       onTap: () {
@@ -804,28 +812,47 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
         ));
       },
       child: Container(
-        width: 280,
+        width: 290,
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Color(0xFFF9FAFB)],
+          ),
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            // Soft ambient shadow
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 12)),
+            // Direct light shadow
+            BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 4)),
+            // Top highlight (Bevel effect)
+            const BoxShadow(color: Colors.white, blurRadius: 4, offset: Offset(-2, -2)),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-              child: SizedBox(
-                height: 160,
-                width: double.infinity,
-                child: CustomImage(
-                  image: imageUrl,
-                  fit: BoxFit.cover,
-                ),
+            // Image with Glassmorphism Badges
+            SizedBox(
+              height: 160,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(22),
+                      topRight: Radius.circular(22),
+                    ),
+                    child: CustomImage(
+                      image: imageUrl,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ],
               ),
             ),
             // Info
@@ -840,26 +867,27 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                       Expanded(
                         child: Text(
                           directory.title ?? '',
-                          style: robotoBold.copyWith(fontSize: 15, color: _kPrimary),
+                          style: robotoBold.copyWith(fontSize: 17, color: Colors.black87),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _kNeutral,
-                          borderRadius: BorderRadius.circular(10),
+                          gradient: const LinearGradient(colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)]),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               (directory.averageRating ?? 0).toStringAsFixed(1),
-                              style: robotoMedium.copyWith(fontSize: 12, color: _kPrimary),
+                              style: robotoBold.copyWith(fontSize: 13, color: const Color(0xFFD97706)),
                             ),
-                            const SizedBox(width: 3),
-                            const Icon(Icons.star_rounded, size: 14, color: _kPrimary),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.star_rounded, size: 14, color: Color(0xFFF59E0B)),
                           ],
                         ),
                       ),
@@ -868,27 +896,117 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                   const SizedBox(height: 6),
                   Text(
                     directory.category?['name'] ?? 'Specialty',
-                    style: robotoRegular.copyWith(fontSize: 12, color: Colors.grey[600]),
+                    style: robotoMedium.copyWith(fontSize: 14, color: Colors.grey[500]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text('Free Delivery', style: robotoMedium.copyWith(fontSize: 11, color: Colors.grey[700])),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: CircleAvatar(radius: 2, backgroundColor: Colors.grey[400]),
-                      ),
-                      Text('15-20 min', style: robotoRegular.copyWith(fontSize: 11, color: Colors.grey[600])),
-                    ],
-                  ),
+                  if (deliveryTime.isNotEmpty || hasFastDelivery || hasFreeDelivery) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        if (deliveryTime.isNotEmpty)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.timer_rounded, size: 12, color: Colors.grey[500]),
+                              const SizedBox(width: 2),
+                              Text(
+                                deliveryTime,
+                                style: robotoMedium.copyWith(fontSize: 10, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        if (hasFastDelivery)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFFDE68A)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const _SpeedingIcon(icon: Icons.two_wheeler_rounded, color: Color(0xFFD97706)),
+                                const SizedBox(width: 2),
+                                Text('Fast Delivery', style: robotoBold.copyWith(fontSize: 9, color: Color(0xFFD97706))),
+                              ],
+                            ),
+                          ),
+                        if (hasFreeDelivery)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFF86EFAC)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.local_shipping_rounded, size: 10, color: Color(0xFF059669)),
+                                const SizedBox(width: 2),
+                                Text('Free Delivery', style: robotoBold.copyWith(fontSize: 9, color: Color(0xFF059669))),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SpeedingIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  const _SpeedingIcon({required this.icon, required this.color});
+
+  @override
+  State<_SpeedingIcon> createState() => _SpeedingIconState();
+}
+
+class _SpeedingIconState extends State<_SpeedingIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: -1.5, end: 1.5).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutSine,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(_animation.value, 0),
+          child: Icon(widget.icon, size: 14, color: widget.color),
+        );
+      },
     );
   }
 }

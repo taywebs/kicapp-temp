@@ -9,6 +9,13 @@ class ProviderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final listing = (provider.directoryListings != null && provider.directoryListings!.isNotEmpty) 
+        ? provider.directoryListings!.first 
+        : null;
+    final dynamicMap = listing?.dynamicData ?? {};
+    final bool hasFreeDelivery = dynamicMap['free_delivery'] == 1 || dynamicMap['free_delivery'] == '1' || dynamicMap['free_delivery'] == true;
+    final String deliveryTime = dynamicMap['delivery_time']?.toString() ?? '';
+
     return InkWell(
       onTap: () {
         Get.toNamed(RouteHelper.getProviderServicesRoute(
@@ -128,6 +135,56 @@ class ProviderCard extends StatelessWidget {
                         ),
                       ],
                     ),
+
+                  if (hasFreeDelivery || deliveryTime.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (hasFreeDelivery)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFf0fdf4),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFbbf7d0)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.local_shipping_rounded, size: 12, color: Color(0xFF16a34a)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Free Delivery',
+                                  style: robotoBold.copyWith(fontSize: 10, color: const Color(0xFF16a34a)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (deliveryTime.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFfffbeb),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFfde68a)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.timer_rounded, size: 12, color: Color(0xFFd97706)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  deliveryTime,
+                                  style: robotoBold.copyWith(fontSize: 10, color: const Color(0xFFd97706)),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

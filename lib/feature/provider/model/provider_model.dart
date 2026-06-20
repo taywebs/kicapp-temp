@@ -116,6 +116,7 @@ class ProviderData {
   int? subscribedServicesCount;
   Coordinates? coordinates;
   double? distance;
+  List<DirectoryListing>? directoryListings;
 
 
   ProviderData(
@@ -156,6 +157,7 @@ class ProviderData {
         this.subscribedServicesCount,
         this.coordinates,
         this.distance,
+        this.directoryListings,
       });
 
   ProviderData.fromJson(Map<String, dynamic> json) {
@@ -204,6 +206,12 @@ class ProviderData {
     coordinates = json['coordinates'] != null
         ? Coordinates.fromJson(json['coordinates'])
         : null;
+    if (json['directory_listings'] != null) {
+      directoryListings = <DirectoryListing>[];
+      json['directory_listings'].forEach((v) {
+        directoryListings!.add(DirectoryListing.fromJson(v));
+      });
+    }
 
 
   }
@@ -254,6 +262,9 @@ class ProviderData {
     data['subscribed_services_count'] = subscribedServicesCount;
     if (coordinates != null) {
       data['coordinates'] = coordinates!.toJson();
+    }
+    if (directoryListings != null) {
+      data['directory_listings'] = directoryListings!.map((v) => v.toJson()).toList();
     }
 
     return data;
@@ -470,6 +481,46 @@ class Links {
     data['url'] = url;
     data['label'] = label;
     data['active'] = active;
+    return data;
+  }
+}
+
+class DirectoryListing {
+  String? id;
+  String? providerId;
+  String? thumbnail;
+  String? thumbnailFullPath;
+  Map<String, dynamic>? dynamicData;
+  int? isActive;
+
+  DirectoryListing({
+    this.id,
+    this.providerId,
+    this.thumbnail,
+    this.thumbnailFullPath,
+    this.dynamicData,
+    this.isActive,
+  });
+
+  DirectoryListing.fromJson(Map<String, dynamic> json) {
+    id = json['id'];
+    providerId = json['provider_id'];
+    thumbnail = json['thumbnail'];
+    thumbnailFullPath = json['thumbnail_full_path'];
+    if (json['dynamic_data'] != null) {
+      dynamicData = json['dynamic_data'] is Map ? Map<String, dynamic>.from(json['dynamic_data']) : null;
+    }
+    isActive = int.tryParse(json['is_active'].toString());
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['id'] = id;
+    data['provider_id'] = providerId;
+    data['thumbnail'] = thumbnail;
+    data['thumbnail_full_path'] = thumbnailFullPath;
+    data['dynamic_data'] = dynamicData;
+    data['is_active'] = isActive;
     return data;
   }
 }
