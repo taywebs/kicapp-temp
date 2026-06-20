@@ -80,87 +80,104 @@ class _DirectoryMainScreenState extends State<DirectoryMainScreen> {
       bottomNavigationBar: SafeArea(
         child: Container(
           margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: _kPrimary.withOpacity(0.06),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _kNeutral.withOpacity(0.5),
-                    width: 1.0,
+          height: 72, // Reduced to give a tighter look
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // White Background Bar
+              Positioned(
+                left: 0, right: 0, bottom: 0,
+                child: Container(
+                  height: 56, // Reduced height
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _kPrimary.withOpacity(0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _navItem(0, Icons.home_outlined, Icons.home_rounded, 'Home'),
-                    _navItem(1, Icons.explore_outlined, Icons.explore_rounded, 'Explore'),
-                    _navItem(2, Icons.bookmark_outline_rounded, Icons.bookmark_rounded, 'Saved'),
-                    _navItem(3, Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
-                  ],
-                ),
               ),
-            ),
+              // Navigation Items
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavItem(0, Icons.home_rounded, Icons.home_rounded, 'Home'),
+                  _buildNavItem(1, Icons.explore_rounded, Icons.explore_rounded, 'Explore'),
+                  _buildNavItem(2, Icons.bookmark_rounded, Icons.bookmark_rounded, 'Saved'),
+                  _buildNavItem(3, Icons.person_rounded, Icons.person_rounded, 'Profile'),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _navItem(int index, IconData outlineIcon, IconData solidIcon, String label) {
+  Widget _buildNavItem(int index, IconData outlineIcon, IconData solidIcon, String label) {
     bool isSelected = _pageIndex == index;
 
     return GestureDetector(
       onTap: () => _setPage(index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-        padding: isSelected 
-          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
-          : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? _kPrimary : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: _kPrimary.withOpacity(0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : [],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+      child: SizedBox(
+        width: 80,
+        height: 72, // Matches total height
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.none,
           children: [
-            Icon(
-              isSelected ? solidIcon : outlineIcon,
-              size: 20,
-              color: isSelected ? Colors.white : Colors.grey[400],
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: robotoBold.copyWith(fontSize: 12, color: Colors.white),
+            // Inactive Icon
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: isSelected ? 0.0 : 1.0,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 15), // Centered vertically in the 56px white bar
+                child: Icon(outlineIcon, color: Colors.grey[700], size: 26), // Darker and slightly larger
               ),
-            ]
+            ),
+            // Active Capsule (Floating with fake cutout)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutBack,
+              bottom: isSelected ? 26 : -40, // Lowered active capsule
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: isSelected ? 1.0 : 0.0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _kPrimary,
+                    borderRadius: BorderRadius.circular(24),
+                    // Fake cutout border to exactly match screen background bottom gradient
+                    border: Border.all(color: const Color(0xFFF0E4CE), width: 6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _kPrimary.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      )
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(solidIcon, color: Colors.white, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        label,
+                        style: robotoBold.copyWith(fontSize: 11, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

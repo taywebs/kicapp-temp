@@ -302,24 +302,30 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                               ),
                                             ],
                                           ),
-                                          Builder(builder: (context) {
-                                            final List<dynamic> _badges = (_outerDynMap['badges'] is List) ? _outerDynMap['badges'] : [];
-                                            if (_badges.isEmpty) return const SizedBox();
-                                            return Padding(
-                                              padding: const EdgeInsets.only(top: 12),
-                                              child: Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: _badges.map((b) => _buildProviderBadge(b.toString())).toList(),
-                                              ),
-                                            );
-                                          }),
                                         ],
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
+                              Builder(builder: (context) {
+                                final List<dynamic> _badges = (_outerDynMap['badges'] is List) ? _outerDynMap['badges'] : [];
+                                if (_badges.isEmpty) return const SizedBox();
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const BouncingScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                                    child: Row(
+                                      children: _badges.map((b) => Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: _buildProviderBadge(b.toString()),
+                                      )).toList(),
+                                    ),
+                                  ),
+                                );
+                              }),
                               // Divider
                               Container(
                                 height: 1,
@@ -639,6 +645,22 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 32),
+
+                        // ─── Related Listings ───
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          child: _buildRelatedListings(d),
+                        ),
                         const SizedBox(height: 100), // Bottom padding
                         ],
                       ),
@@ -722,19 +744,33 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFBEB), Color(0xFFFDF0CB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: const Color(0xFFE5C88B), width: 1.2),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
+          BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3)),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_getDynamicIcon(feature), size: 18, color: _kGold),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Icon(_getDynamicIcon(feature), size: 14, color: const Color(0xFFC5A059)),
+          ),
           const SizedBox(width: 8),
-          Text(_formatKey(feature), style: robotoMedium.copyWith(fontSize: 14, color: _kPrimary)),
+          Text(_formatKey(feature), style: robotoBold.copyWith(fontSize: 13, color: const Color(0xFF5A4108))),
         ],
       ),
     );
@@ -1228,7 +1264,7 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.72,
+              childAspectRatio: 0.60,
             ),
             itemCount: previewProducts.length,
             itemBuilder: (context, index) {
@@ -1533,7 +1569,7 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
   Widget _buildBannersSection(List<Map<String, dynamic>> banners) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      height: 140,
+      height: 180,
       child: Stack(
         children: [
           PageView.builder(
@@ -1561,7 +1597,7 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                     borderRadius: BorderRadius.circular(16),
                     child: CustomImage(
                       image: '${AppConstants.baseUrl}/storage/app/public/directory/dynamic/$image',
-                      fit: BoxFit.fill,
+                      fit: BoxFit.cover,
                       placeholder: Images.placeholder,
                     ),
                   ),
@@ -1773,6 +1809,97 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
       ),
     );
   }
+
+  Widget _buildRelatedListings(DirectoryModel currentDir) {
+    return GetBuilder<DirectoryController>(builder: (ctrl) {
+      final listings = ctrl.directoryList ?? [];
+      final related = listings.where((d) => d.categoryId == currentDir.categoryId && d.id != currentDir.id).toList();
+      
+      if (related.isEmpty) return const SizedBox();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.maps_home_work_rounded, color: Color(0xFFC5A059), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Related ${currentDir.category?['name'] ?? 'Listings'}'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 95,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: related.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, index) {
+                final d = related[index];
+                final imgUrl = d.coverImageFullPath ?? d.bannerUrl ?? '';
+                final rating = d.averageRating ?? 0.0;
+
+                return GestureDetector(
+                  onTap: () => Get.to(() => DirectoryDetailsScreen(
+                    directoryId: d.id ?? '',
+                    categoryName: d.category?['name'] ?? 'Business',
+                    initialModel: d,
+                  ), preventDuplicates: false),
+                  child: Container(
+                    width: 260,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 5)),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: SizedBox(
+                            width: 70, height: 70,
+                            child: imgUrl.isNotEmpty
+                              ? CustomImage(image: imgUrl, fit: BoxFit.cover)
+                              : Container(color: const Color(0xFFF0F0F0), child: Icon(Icons.storefront_rounded, size: 30, color: Colors.grey[300])),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(d.title ?? 'Business', style: robotoBold.copyWith(fontSize: 14, color: _kPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 3),
+                              Text(d.category?['name'] ?? '', style: robotoRegular.copyWith(fontSize: 11, color: Colors.grey[500]), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const Icon(Icons.star_rounded, size: 14, color: Color(0xFFC5A059)),
+                                  const SizedBox(width: 3),
+                                  Text(rating > 0 ? rating.toStringAsFixed(1) : 'New', style: robotoMedium.copyWith(fontSize: 12, color: _kPrimary)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    });
+  }
 }
 
 class _GallerySlider extends StatefulWidget {
@@ -1823,7 +1950,7 @@ class _GallerySliderState extends State<_GallerySlider> {
                   width: MediaQuery.of(context).size.width,
                   child: CustomImage(
                     image: img,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.fill,
                     placeholder: Images.placeholder,
                   ),
                 );

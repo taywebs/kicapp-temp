@@ -449,7 +449,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
               _buildSectionHeader('Popular Businesses'),
               const SizedBox(height: 16),
               _buildPopularBusinesses(),
-              const SizedBox(height: 60), // Reduced bottom padding for navbar
+              const SizedBox(height: 20), // Reduced bottom padding to remove empty space
             ],
           ),
         ),
@@ -619,7 +619,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
       final top = sorted.take(6).toList();
 
       return SizedBox(
-        height: 120,
+        height: 95,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
@@ -864,6 +864,18 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                       ],
                     ),
                   ],
+                  Builder(builder: (context) {
+                    final List<dynamic> _badges = dynMap['badges'] is List ? dynMap['badges'] : [];
+                    if (_badges.isEmpty) return const SizedBox();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _badges.take(3).map((b) => _buildMiniBadge(b.toString())).toList(),
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -916,6 +928,33 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMiniBadge(String label) {
+    Color badgeColor = const Color(0xFFC5A059);
+    IconData icon = Icons.check_circle_outline_rounded;
+    String l = label.toLowerCase();
+    if (l.contains('24/7') || l.contains('open')) { badgeColor = const Color(0xFF059669); icon = Icons.access_time_rounded; }
+    else if (l.contains('emergency')) { badgeColor = Colors.redAccent; icon = Icons.emergency_rounded; }
+    else if (l.contains('top rated') || l.contains('verified')) { badgeColor = const Color(0xFFD97706); icon = Icons.verified_rounded; }
+    else if (l.contains('insurance')) { badgeColor = const Color(0xFF2563EB); icon = Icons.health_and_safety_rounded; }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: badgeColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: badgeColor),
+          const SizedBox(width: 3),
+          Text(label, style: robotoBold.copyWith(fontSize: 9, color: badgeColor)),
+        ],
       ),
     );
   }
