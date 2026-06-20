@@ -298,7 +298,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                         flex: 1,
                         child: Column(
                           children: [
-                            // Top horizontal card
+                            // Top horizontal card (Mobile Wash)
                             Expanded(
                               flex: 1,
                               child: Container(
@@ -309,7 +309,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                                     BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5)),
                                   ],
                                   image: const DecorationImage(
-                                    image: NetworkImage('https://images.unsplash.com/photo-1582735689369-4fe89db7114c?q=80&w=600&auto=format&fit=crop'),
+                                    image: NetworkImage('https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=600&auto=format&fit=crop'),
                                     fit: BoxFit.cover,
                                   ),
                                 ),
@@ -324,58 +324,39 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
                                   ),
                                   padding: const EdgeInsets.all(12),
                                   alignment: Alignment.bottomLeft,
-                                  child: Text('Laundry & Care', style: robotoBold.copyWith(color: Colors.white, fontSize: 13)),
+                                  child: Text('Mobile Wash', style: robotoBold.copyWith(color: Colors.white, fontSize: 14)),
                                 ),
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // Bottom two square cards
+                            // Bottom horizontal card (AC Repair or Laundry)
                             Expanded(
                               flex: 1,
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.blueGrey[800],
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1.2),
-                                        boxShadow: [
-                                          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5)),
-                                        ],
-                                        image: const DecorationImage(
-                                          image: NetworkImage('https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=400&auto=format&fit=crop'),
-                                          fit: BoxFit.cover,
-                                          colorFilter: ColorFilter.mode(Colors.black38, BlendMode.darken),
-                                        ),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: Text('Mobile Wash', style: robotoBold.copyWith(color: Colors.white, fontSize: 12)),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1.2),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5)),
+                                  ],
+                                  image: const DecorationImage(
+                                    image: NetworkImage('https://images.unsplash.com/photo-1563453392212-326f5e854473?q=80&w=600&auto=format&fit=crop'), // Aesthetic AC/Home Services image
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1.2),
-                                        boxShadow: [
-                                          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5)),
-                                        ],
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.ac_unit_rounded, color: _kSecondary, size: 24),
-                                          const SizedBox(height: 8),
-                                          Text('AC Repair', style: robotoBold.copyWith(color: _kPrimary, fontSize: 12)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                  padding: const EdgeInsets.all(12),
+                                  alignment: Alignment.bottomLeft,
+                                  child: Text('Laundry & Care', style: robotoBold.copyWith(color: Colors.white, fontSize: 14)),
+                                ),
                               ),
                             ),
                           ],
@@ -540,7 +521,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> {
               _buildSectionHeader('Popular Businesses'),
               const SizedBox(height: 16),
               _buildPopularBusinesses(),
-              const SizedBox(height: 100), // Bottom padding for navbar
+              const SizedBox(height: 60), // Reduced bottom padding for navbar
             ],
           ),
         ),
