@@ -1,7 +1,7 @@
 name: demandium
 description: A new Flutter application.
 publish_to: 'none' #
-version: 1.0.9+16
+version: 1.0.9+17
 
 environment:
   sdk: ^3.5.3
