@@ -642,6 +642,29 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
                                     ),
                                   ),
                                 ),
+                              const SizedBox(height: 24),
+                              // ─── Write a Review Button ───
+                              InkWell(
+                                onTap: () => Get.to(() => DirectoryReviewScreen(directoryId: d.id!, directoryTitle: d.title ?? '')),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  decoration: BoxDecoration(
+                                    color: _kGoldLight,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: _kGold.withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.rate_review_rounded, color: _kGold, size: 20),
+                                      const SizedBox(width: 8),
+                                      Text('Write a Review', style: robotoBold.copyWith(fontSize: 15, color: _kGold)),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -929,15 +952,15 @@ class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
   }
 
   Widget _buildAvatar(DirectoryModel d) {
-    final String? coverPath = d.coverImageFullPath;
     final String? logoPath = d.logoUrl;
+    final String? coverPath = d.coverImageFullPath;
     final String? thumbPath = d.thumbnail;
     
-    if (coverPath != null && coverPath.isNotEmpty && !coverPath.contains('placeholder')) {
-      return CustomImage(image: coverPath, fit: BoxFit.contain, placeholder: Images.placeholder);
-    } else if (logoPath != null && logoPath.isNotEmpty) {
+    if (logoPath != null && logoPath.isNotEmpty && !logoPath.contains('placeholder')) {
       return CustomImage(image: logoPath, fit: BoxFit.contain, placeholder: Images.placeholder);
-    } else if (thumbPath != null && thumbPath.isNotEmpty) {
+    } else if (coverPath != null && coverPath.isNotEmpty && !coverPath.contains('placeholder')) {
+      return CustomImage(image: coverPath, fit: BoxFit.contain, placeholder: Images.placeholder);
+    } else if (thumbPath != null && thumbPath.isNotEmpty && !thumbPath.contains('placeholder')) {
       return CustomImage(image: thumbPath, fit: BoxFit.contain, placeholder: Images.placeholder);
     }
     return const Icon(Icons.storefront_rounded, size: 40, color: Colors.grey);
