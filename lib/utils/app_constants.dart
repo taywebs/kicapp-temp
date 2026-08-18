@@ -5,7 +5,7 @@ class AppConstants {
 
   static const String appName = 'KicApps';
   static const String appVersion = '3.1'; /// Flutter SDK : 3.27.3
-  static const String baseUrl = 'https://kicapps.pline.site';
+  static const String baseUrl = 'https://kicapps.com';
   static const bool avoidMaintenanceMode = false;
   static const LocalCachesTypeEnum cachesType = LocalCachesTypeEnum.all;
   static const String categoryUrl = '/api/v1/customer/category?limit=20';

@@ -2,23 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- method: development = للتجربة على جهازك الشخصي فقط -->
     <key>method</key>
-    <string>development</string>
+    <string>app-store</string>
 
-    <!-- teamID: Team ID الخاص بحساب المطور في آبل -->
     <key>teamID</key>
-    <string>7WSYLQ8Y87</string>
+    <string>HTG33TCYQN</string>
 
-    <!-- signingStyle: automatic = آبل تختار الشهادة تلقائياً -->
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
 
-    <!-- تعطيل تحميل الرموز إلى Apple servers (لتسريع عملية الـ build) -->
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.khetelehteraf.kicapp.user</key>
+        <string>KicApps_User_Profile</string>
+    </dict>
+
     <key>uploadSymbols</key>
-    <false/>
+    <true/>
 
-    <!-- تعطيل رفع ملف الـ bitcode -->
     <key>compileBitcode</key>
     <false/>
 </dict>
