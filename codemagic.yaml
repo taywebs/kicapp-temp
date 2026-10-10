@@ -1,0 +1,111 @@
+workflows:
+  ios-testflight:
+    name: Easy to find — iOS TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+
+    integrations:
+      # Name of the App Store Connect API key you add in Codemagic under
+      # Teams → Integrations → Developer Portal. Rename here if you used another.
+      app_store_connect: EasyToFind ASC Key
+
+    environment:
+      flutter: 3.32.0
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.khetelehteraf.kicapp.user
+      vars:
+        BUNDLE_ID: "com.khetelehteraf.kicapp.user"
+        # Apple ID of the app record in App Store Connect (the numeric id in the
+        # URL of the app page). Set it in Codemagic → Environment variables.
+        APP_STORE_APPLE_ID: $APP_STORE_APPLE_ID
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    scripts:
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Flutter packages
+        script: |
+          flutter --version
+          flutter pub get
+
+      - name: Install CocoaPods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
+      - name: Next TestFlight build number
+        script: |
+          # TestFlight refuses a build number it has already seen, so take the
+          # latest one it knows about and add one.
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo "0")
+          NEXT=$(($LATEST + 1))
+          echo "Using build number $NEXT"
+          echo "BUILD_NUMBER=$NEXT" >> $CM_ENV
+
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Everyone in these TestFlight groups gets the build automatically.
+        # Remove the list to keep it internal-only.
+        beta_groups:
+          - Internal Testers
+      email:
+        recipients:
+          - plineweb@hotmail.com
+        notify:
+          success: true
+          failure: true
+
+  android-apk:
+    name: Easy to find — Android APK
+    instance_type: linux_x2
+    max_build_duration: 60
+
+    environment:
+      flutter: 3.32.0
+      java: 17
+
+    scripts:
+      - name: Flutter packages
+        script: flutter pub get
+      - name: Build APK
+        script: flutter build apk --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+
+    publishing:
+      email:
+        recipients:
+          - plineweb@hotmail.com
+        notify:
+          success: true
+          failure: true

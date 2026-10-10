@@ -1,0 +1,2576 @@
+import 'package:demandium/utils/core_export.dart';
+import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'dart:convert';
+import 'package:get/get.dart';
+import 'package:demandium/feature/category/view/category_products_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:demandium/feature/category/controller/directory_controller.dart';
+import 'package:demandium/feature/category/model/directory_model.dart';
+import 'package:demandium/feature/category/view/directory_review_screen.dart';
+import 'package:demandium/feature/category/view/directory_all_reviews_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+
+// ─── Elegant React-like Brand Colors ────────────────────────
+const Color _kPrimary   = Color(0xFF1A1A1B);
+const Color _kGold      = Color(0xFFC5A059);
+const Color _kBlue      = Color(0xFF0052CC);
+const Color _kNeutral   = Color(0xFFF7F9FC);
+const Color _kGoldLight = Color(0xFFFDF8EE);
+
+class DirectoryDetailsScreen extends StatefulWidget {
+  final String directoryId;
+  final String categoryName;
+  final DirectoryModel? initialModel;
+
+  const DirectoryDetailsScreen({
+    super.key,
+    required this.directoryId,
+    required this.categoryName,
+    this.initialModel,
+  });
+
+  @override
+  State<DirectoryDetailsScreen> createState() => _DirectoryDetailsScreenState();
+}
+
+class _DirectoryDetailsScreenState extends State<DirectoryDetailsScreen> {
+  final PageController _bannerPageController = PageController();
+  final ValueNotifier<int> _currentBannerIndex = ValueNotifier<int>(0);
+
+  // Saved state lives in DirectoryController so the details screen, the
+  // Saved tab and every bookmark icon stay in sync.
+  bool _isSaved(String id) => Get.find<DirectoryController>().isSaved(id);
+
+  void _toggleSave(DirectoryModel d) {
+    Get.find<DirectoryController>().toggleSavedWithFeedback(d);
+    if (mounted) setState(() {});
+  }
+
+  final ScrollController _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        Get.find<DirectoryController>().getDirectoryDetails(widget.directoryId, initialModel: widget.initialModel);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    _bannerPageController.dispose();
+    _currentBannerIndex.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6FA),
+      body: GetBuilder<DirectoryController>(builder: (ctrl) {
+        if (ctrl.isLoading && ctrl.directoryDetails == null) {
+          // If we have an initialModel, show it while loading
+          if (widget.initialModel != null) {
+            // Will continue rendering with initialModel below
+          } else {
+            return const Center(child: CircularProgressIndicator(color: _kGold));
+          }
+        }
+
+        if (ctrl.directoryDetails == null && widget.initialModel == null) {
+          return _buildError(ctrl);
+        }
+
+        final DirectoryModel d = ctrl.directoryDetails ?? widget.initialModel!;
+        final double rating = d.averageRating ?? 0.0;
+        final int reviewCount = int.tryParse('${ctrl.ratingInfo?['review_count'] ?? 0}') ?? 0;
+        final List<dynamic> reviews = ctrl.reviewsList ?? [];
+        final Map _outerDynMap = (d.dynamicData is Map) ? (d.dynamicData as Map) : {};
+        final bool hasFreeDelivery = _outerDynMap['free_delivery'] == 1 || _outerDynMap['free_delivery'] == true || _outerDynMap['free_delivery'] == '1';
+
+        return Stack(
+          children: [
+            CustomScrollView(
+              controller: _scrollCtrl,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 240,
+                  pinned: true,
+                  elevation: 0,
+                  leading: _glassCircleBtn(Icons.arrow_back_ios_new_rounded, () => Get.back(), size: 18),
+                  actions: [
+                    _favoriteBtn(d),
+                    const SizedBox(width: 12),
+                  ],
+                  flexibleSpace: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final double top = constraints.biggest.height;
+                      final double statusBarH = MediaQuery.of(context).padding.top;
+                      final bool isCollapsed = top <= kToolbarHeight + statusBarH + 10;
+                      final Map dynMap = (d.dynamicData is Map) ? (d.dynamicData as Map) : {};
+                      final bool hasFreeDelivery = dynMap['free_delivery'] == 1 || dynMap['free_delivery'] == true || dynMap['free_delivery'] == '1';
+                      final String bannerImg = d.galleryFullPaths.isNotEmpty 
+                          ? d.galleryFullPaths.first 
+                          : (d.coverImageFullPath ?? d.bannerUrl ?? '');
+                      
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // ─── Background: Banner image with dark overlay (always present) ───
+                          if (bannerImg.isNotEmpty)
+                            CustomImage(image: bannerImg, fit: BoxFit.cover)
+                          else
+                            Container(color: _kPrimary),
+                          // Dark overlay - stronger when collapsed
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            color: isCollapsed 
+                              ? Colors.black.withOpacity(0.8)
+                              : Colors.black.withOpacity(0.3),
+                          ),
+                          // ─── When expanded: show gallery slider ───
+                          if (!isCollapsed)
+                            FlexibleSpaceBar(
+                              background: _GallerySlider(directory: d),
+                            ),
+                          // ─── When collapsed: show name in glass card ───
+                          if (isCollapsed)
+                            Center(
+                              child: Padding(
+                                padding: EdgeInsets.only(top: statusBarH),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withOpacity(0.2)),
+                                      ),
+                                      child: Text(
+                                        d.title ?? '',
+                                        style: robotoBold.copyWith(fontSize: 15, color: Colors.white),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+
+                // ─── Main Content ───
+                SliverToBoxAdapter(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: _kNeutral,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ─── space for floating badge ───
+                            if (hasFreeDelivery) const SizedBox(height: 22),
+                            // ─── Header: Premium Glass-like Card ───
+                            Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 12))
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Avatar, Title, Location, Rating
+                              Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Avatar - Premium 3D Card
+                                    Container(
+                                      height: 78,
+                                      width: 78,
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(18),
+                                        color: Colors.white,
+                                        border: Border.all(color: Colors.grey.withOpacity(0.08), width: 1.5),
+                                        boxShadow: [
+                                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 6)),
+                                          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: _buildAvatar(d),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            d.title ?? 'Unnamed',
+                                            style: robotoBold.copyWith(fontSize: 22, color: _kPrimary, height: 1.2),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.location_on_rounded, color: Colors.grey, size: 14),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  d.address ?? d.city ?? 'Location N/A',
+                                                  style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[700]),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          // Rating and Review Count
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: _kGoldLight,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: _kGold.withOpacity(0.3)),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.star_rounded, color: _kGold, size: 14),
+                                                    const SizedBox(width: 4),
+                                                    Text(rating.toStringAsFixed(1), style: robotoBold.copyWith(fontSize: 13, color: _kGold)),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '$reviewCount ${reviewCount == 1 ? 'Review' : 'Reviews'}',
+                                                style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[600]),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Builder(builder: (context) {
+                                final List<dynamic> _badges = (_outerDynMap['badges'] is List) ? _outerDynMap['badges'] : [];
+                                if (_badges.isEmpty) return const SizedBox();
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const BouncingScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                                    child: Row(
+                                      children: _badges.map((b) => Padding(
+                                        padding: const EdgeInsetsDirectional.only(end: 8),
+                                        child: _buildProviderBadge(b.toString()),
+                                      )).toList(),
+                                    ),
+                                  ),
+                                );
+                              }),
+                              // Divider
+                              Container(
+                                height: 1,
+                                width: double.infinity,
+                                color: Colors.grey.withOpacity(0.1),
+                              ),
+                              // Action Buttons
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 17),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    _actionBtn(Icons.directions_rounded, 'Direction', const Color(0xFF2563EB), () => _launchMaps(d.latitude, d.longitude)),
+                                    _actionBtn(Icons.phone_rounded, 'Call', const Color(0xFF059669), () => _launchUrl('tel:${d.phone ?? ''}')),
+                                    _actionBtn(Icons.language_rounded, 'Website', const Color(0xFF4F46E5), () => _launchUrl(d.website ?? '')),
+                                    _actionBtn(Icons.rate_review_rounded, 'Review', const Color(0xFFD97706), () => Get.to(() => DirectoryReviewScreen(directoryId: d.id ?? '', directoryTitle: d.title ?? ''))),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ─── Extract Dynamic Data ───
+                        Builder(
+                          builder: (context) {
+                            final Map<String, dynamic> dynamicMap = (d.dynamicData is Map) ? Map<String, dynamic>.from(d.dynamicData as Map) : {};
+                            final Map<String, List> menuTabs = {};
+                            final Map<String, List> tagsLists = {};
+                            final List<Map<String, dynamic>> doctorsList = [];
+                            final List<Map<String, dynamic>> productsList = [];
+                            final List<Map<String, dynamic>> packagesList = [];
+                            final List<Map<String, dynamic>> bannersList = [];
+                            final List<Map<String, dynamic>> gridItemsList = [];
+                            final Map<String, dynamic> otherDynamicFields = {};
+                            final List<String> dynamicFeatures = [];
+
+                            // Hidden keys that are handled separately
+                            final Set<String> _hiddenKeys = {'currency', 'free_delivery', 'online_payment', 'cash_on_delivery'};
+
+                            for (var entry in dynamicMap.entries) {
+                              if (_hiddenKeys.contains(entry.key.toString().toLowerCase())) continue;
+                              
+                              final val = entry.value;
+                              final keyLower = entry.key.toString().toLowerCase();
+
+                              if (val is Map) {
+                                bool isMenu = (val.values.every((v) => v is List));
+                                if (isMenu || keyLower == 'menu' || keyLower.contains('menu')) {
+                                  for (var k in val.keys) {
+                                    if (val[k] is List) {
+                                      menuTabs[k.toString()] = val[k] as List;
+                                    } else {
+                                      menuTabs[k.toString()] = [val[k]];
+                                    }
+                                  }
+                                } else {
+                                  otherDynamicFields[entry.key.toString()] = val;
+                                }
+                              } else if (val is List && val.isNotEmpty) {
+                                // Detect structured lists (doctors/products) vs simple tags
+                                if (val.first is Map) {
+                                  final firstItem = Map<String, dynamic>.from(val.first as Map);
+                                  if (firstItem.containsKey('name') && (firstItem.containsKey('specialty') || firstItem.containsKey('fee') || firstItem.containsKey('qualifications'))) {
+                                    // Doctors list
+                                    for (var item in val) {
+                                      if (item is Map) doctorsList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else if (firstItem.containsKey('package_title')) {
+                                    // Packages list
+                                    for (var item in val) {
+                                      if (item is Map) packagesList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else if (firstItem.containsKey('title') && firstItem.containsKey('price')) {
+                                    // Products list
+                                    for (var item in val) {
+                                      if (item is Map) productsList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else if (firstItem.containsKey('title') && firstItem.containsKey('image') && !firstItem.containsKey('price')) {
+                                    // Grid Items List
+                                    for (var item in val) {
+                                      if (item is Map) gridItemsList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else if (firstItem.containsKey('link') && firstItem.containsKey('image') && !firstItem.containsKey('title')) {
+                                    // Banners List
+                                    for (var item in val) {
+                                      if (item is Map) bannersList.add(Map<String, dynamic>.from(item));
+                                    }
+                                  } else {
+                                    tagsLists[entry.key.toString()] = val;
+                                  }
+                                } else {
+                                  tagsLists[entry.key.toString()] = val;
+                                }
+                              } else if (val == true || val == 1 || val == '1' || val == 'true') {
+                                dynamicFeatures.add(entry.key.toString());
+                              } else if (val != null && val != false && val != 0 && val != '0' && val != 'false' && (val is! Iterable || val.isNotEmpty) && val.toString().trim().isNotEmpty && val.toString().trim() != '[]') {
+                                otherDynamicFields[entry.key.toString()] = val;
+                              }
+                            }
+
+                            final String currency = dynamicMap['currency']?.toString() ?? '\$';
+                            final bool hasOnlinePayment = dynamicMap['online_payment'] == 1 || dynamicMap['online_payment'] == true || dynamicMap['online_payment'] == '1';
+                            final bool hasCashOnDelivery = dynamicMap['cash_on_delivery'] == 1 || dynamicMap['cash_on_delivery'] == true || dynamicMap['cash_on_delivery'] == '1';
+
+                            final validFeatures = (d.features ?? []).where((f) => f.toString().trim().isNotEmpty).toList();
+                            final validDynamicFeatures = dynamicFeatures.where((f) => f.toString().trim().isNotEmpty).toList();
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 1. Menu Tabs
+                                if (menuTabs.isNotEmpty)
+                                  _MenuTabsSection(menuTabs: menuTabs, currency: currency),
+
+                                // 1b. Doctors Section
+                                if (doctorsList.isNotEmpty)
+                                  _buildDoctorsSection(doctorsList, currency),
+
+                                // 1c. Products/Medicines Section
+                                if (productsList.isNotEmpty)
+                                  _buildProductsSection('Products & Medicines', productsList, currency),
+
+                                // 1d. Packages Section
+                                if (packagesList.isNotEmpty)
+                                  _buildPackagesSection(packagesList, currency),
+
+                                // 1e. Banners / Slider Section
+                                if (bannersList.isNotEmpty)
+                                  _buildBannersSection(bannersList),
+
+                                // 1f. Grid Items Section
+                                if (gridItemsList.isNotEmpty)
+                                  _buildGridItemsSection(gridItemsList, productsList, currency),
+
+                                // 1g. Payment Methods Card
+                                if (hasOnlinePayment || hasCashOnDelivery)
+                                  _sectionCard(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _sectionTitle('Payment Methods'),
+                                        const SizedBox(height: 16),
+                                        if (hasOnlinePayment) ...[
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.credit_card_rounded, color: Color(0xFF4F46E5), size: 20),
+                                              const SizedBox(width: 10),
+                                              Text('online_payment_label'.tr, style: robotoBold.copyWith(fontSize: 14, color: _kPrimary)),
+                                              const Spacer(),
+                                              _paymentBadge('VISA', const Color(0xFF1A1F71)),
+                                              const SizedBox(width: 6),
+                                              _paymentBadge('MC', const Color(0xFFEB001B)),
+                                              const SizedBox(width: 6),
+                                              _paymentBadge('AMEX', const Color(0xFF007BC1)),
+                                            ],
+                                          ),
+                                          if (hasCashOnDelivery) const SizedBox(height: 12),
+                                        ],
+                                        if (hasCashOnDelivery)
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.payments_rounded, color: Color(0xFF059669), size: 20),
+                                              const SizedBox(width: 10),
+                                              Text('cash_on_delivery_label'.tr, style: robotoBold.copyWith(fontSize: 14, color: _kPrimary)),
+                                              const Spacer(),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF059669).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
+                                                ),
+                                                child: Text('available'.tr, style: robotoBold.copyWith(fontSize: 12, color: const Color(0xFF059669))),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+
+                                // 2. Features & Amenities and Other Dynamic Fields (Combined)
+                                if (validFeatures.isNotEmpty || validDynamicFeatures.isNotEmpty || otherDynamicFields.isNotEmpty)
+                                  _sectionCard(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _sectionTitle('Features & Amenities'),
+                                        const SizedBox(height: 16),
+                                        if (validFeatures.isNotEmpty || validDynamicFeatures.isNotEmpty)
+                                          Wrap(
+                                            spacing: 12,
+                                            runSpacing: 12,
+                                            children: [
+                                              ...validFeatures.map((f) => _featureChip(f)),
+                                              ...validDynamicFeatures.map((f) => _featureChip(f)),
+                                            ],
+                                          ),
+                                        if ((validFeatures.isNotEmpty || validDynamicFeatures.isNotEmpty) && otherDynamicFields.isNotEmpty)
+                                          const SizedBox(height: 16),
+                                        if (otherDynamicFields.isNotEmpty)
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: otherDynamicFields.entries.map((entry) {
+                                              return _renderDynamicField(entry.key.toString(), entry.value);
+                                            }).toList(),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+
+                        // 5. About
+                        if (d.description != null && d.description!.isNotEmpty)
+                          _sectionCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _sectionTitle('About ${d.title}'),
+                                const SizedBox(height: 12),
+                                Text(
+                                  d.description!,
+                                  style: robotoRegular.copyWith(fontSize: 15, color: Colors.grey[700], height: 1.6),
+                                ),
+                              ],
+                            ),
+                          ),
+
+
+                        // ─── Reviews Section ───
+                        _sectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  _sectionTitle('Reviews'),
+                                  if (reviewCount > 2)
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () => Get.to(() => DirectoryAllReviewsScreen(
+                                        directoryId: d.id ?? '',
+                                        directoryTitle: d.title ?? '',
+                                      )),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        child: Text(
+                                          'View All',
+                                          style: robotoBold.copyWith(fontSize: 14, color: _kBlue),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              Container(
+                                padding: const EdgeInsets.symmetric(vertical: 24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.grey.shade200, width: 1),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Column(
+                                      children: [
+                                        Text(
+                                          rating.toStringAsFixed(1),
+                                          style: robotoBold.copyWith(fontSize: 48, color: _kPrimary, height: 1.0),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: List.generate(5, (i) => Icon(
+                                            i < rating.floor()
+                                                ? Icons.star_rounded
+                                                : (i < rating ? Icons.star_half_rounded : Icons.star_outline_rounded),
+                                            color: _kGold,
+                                            size: 20,
+                                          )),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Based on $reviewCount reviews',
+                                          style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[500]),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              if (reviews.isNotEmpty)
+                                Column(
+                                  children: reviews.take(2).map((r) => _reviewTile(r)).toList(),
+                                )
+                              else
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24.0),
+                                    child: Text(
+                                      'No reviews yet',
+                                      style: robotoMedium.copyWith(fontSize: 15, color: Colors.grey[400]),
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 24),
+                              // ─── Write a Review Button ───
+                              InkWell(
+                                onTap: () => Get.to(() => DirectoryReviewScreen(directoryId: d.id ?? '', directoryTitle: d.title ?? '')),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  decoration: BoxDecoration(
+                                    color: _kGoldLight,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: _kGold.withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.rate_review_rounded, color: _kGold, size: 20),
+                                      const SizedBox(width: 8),
+                                      Text('write_a_review'.tr, style: robotoBold.copyWith(fontSize: 15, color: _kGold)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // ─── Related Listings ───
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          child: _buildRelatedListings(d),
+                        ),
+                        const SizedBox(height: 100), // Bottom padding
+                        ],
+                      ),
+                    ),
+                  ], // Stack (SliverToBoxAdapter) children end
+                ), // Stack end
+              ), // SliverToBoxAdapter end
+            ], // slivers end
+          ), // CustomScrollView end
+            // ─── Free Delivery Badge ───
+            if (hasFreeDelivery)
+              AnimatedBuilder(
+                animation: _scrollCtrl,
+                builder: (ctx, _) {
+                  final double statusH = MediaQuery.of(ctx).padding.top;
+                  final double scrollOff = _scrollCtrl.hasClients ? _scrollCtrl.offset : 0;
+                  final double badgeTop = statusH + 240 - 22 - scrollOff;
+                  // Hide badge once it scrolls off top
+                  if (badgeTop < statusH - 30) return const SizedBox.shrink();
+                  return Positioned(
+                    top: badgeTop,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(50),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF00C853).withOpacity(0.92),
+                                  const Color(0xFF00897B).withOpacity(0.92),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.2),
+                              boxShadow: [
+                                BoxShadow(color: const Color(0xFF00C853).withOpacity(0.5), blurRadius: 16, offset: const Offset(0, 6)),
+                                BoxShadow(color: const Color(0xFF00C853).withOpacity(0.2), blurRadius: 4, spreadRadius: 2, offset: const Offset(0, 1)),
+                                const BoxShadow(color: Colors.white, blurRadius: 2, spreadRadius: -1, offset: Offset(0, -1)),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 15),
+                                const SizedBox(width: 8),
+                                Text('free_delivery_label'.tr, style: robotoBold.copyWith(fontSize: 12, color: Colors.white, letterSpacing: 0.3)),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.25),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ], // outer Stack children end
+        ); // outer Stack end
+    }),
+  );
+}
+
+  // ─── Helper Widgets & Methods ───
+
+  Widget _featureChip(String feature) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFBEB), Color(0xFFFDF0CB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: const Color(0xFFE5C88B), width: 1.2),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Icon(_getDynamicIcon(feature), size: 14, color: const Color(0xFFC5A059)),
+          ),
+          const SizedBox(width: 8),
+          Text(_formatKey(feature), style: robotoBold.copyWith(fontSize: 13, color: const Color(0xFF5A4108))),
+        ],
+      ),
+    );
+  }
+
+  IconData _getDynamicIcon(String key) {
+    key = key.toLowerCase();
+    if (key.contains('time') || key.contains('hour') || key.contains('duration')) return Icons.access_time_rounded;
+    if (key.contains('age') || key.contains('people') || key.contains('doctor') || key.contains('specialt')) return Icons.people_alt_rounded;
+    if (key.contains('price') || key.contains('fee') || key.contains('ticket')) return Icons.local_offer_rounded;
+    if (key.contains('fast_delivery') || key.contains('fast delivery')) return Icons.two_wheeler_rounded;
+    if (key.contains('delivery')) return Icons.local_shipping_rounded;
+    if (key.contains('wifi') || key.contains('internet')) return Icons.wifi_rounded;
+    if (key.contains('park')) return Icons.local_parking_rounded;
+    if (key.contains('music')) return Icons.music_note_rounded;
+    if (key.contains('insurance')) return Icons.health_and_safety_rounded;
+    if (key.contains('card') || key.contains('pay')) return Icons.credit_card_rounded;
+    if (key.contains('location') || key.contains('address')) return Icons.location_on_rounded;
+    if (key.contains('phone') || key.contains('contact')) return Icons.phone_rounded;
+    if (key.contains('time') || key.contains('hour') || key.contains('duration')) return Icons.timer_rounded;
+    return Icons.info_outline_rounded;
+  }
+
+  String _formatKey(String key) {
+    if (key.isEmpty) return key;
+    return key.replaceAll('_', ' ').split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
+  }
+
+  Widget _paymentBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.35), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Text(label, style: robotoBold.copyWith(fontSize: 10, color: Colors.white, letterSpacing: 0.5)),
+    );
+  }
+
+  Widget _sectionCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade100, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+          const BoxShadow(
+            color: Colors.white,
+            blurRadius: 4,
+            spreadRadius: -2,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: robotoBold.copyWith(fontSize: 18, color: _kPrimary),
+    );
+  }
+
+  Widget _actionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Column(
+        children: [
+          Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              border: Border.all(color: color.withOpacity(0.22), width: 1.5),
+              boxShadow: [
+                BoxShadow(color: color.withOpacity(0.14), blurRadius: 12, offset: const Offset(0, 5)),
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+                const BoxShadow(color: Colors.white, blurRadius: 3, spreadRadius: -1, offset: Offset(0, -2)),
+              ],
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 5),
+          Text(label, style: robotoBold.copyWith(fontSize: 10, color: _kPrimary.withOpacity(0.75))),
+        ],
+      ),
+    );
+  }
+
+  Widget _glassCircleBtn(IconData icon, VoidCallback onTap, {double size = 20}) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black.withOpacity(0.25),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+          ),
+          child: Icon(icon, color: Colors.white, size: size),
+        ),
+      ),
+    );
+  }
+
+  Widget _favoriteBtn(DirectoryModel d) {
+    final bool saved = _isSaved(d.id ?? '');
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, right: 0),
+      child: InkWell(
+        onTap: () => _toggleSave(d),
+        customBorder: const CircleBorder(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: saved ? Colors.white : Colors.black.withOpacity(0.25),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            boxShadow: saved ? [
+              BoxShadow(color: _kGold.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+            ] : null,
+          ),
+          child: Icon(
+            saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            color: saved ? _kGold : Colors.white,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(DirectoryModel d) {
+    final String? logoPath = d.logoUrl;
+    final String? coverPath = d.coverImageFullPath;
+    final String? thumbPath = d.thumbnail;
+    
+    if (logoPath != null && logoPath.isNotEmpty && !logoPath.contains('placeholder')) {
+      return CustomImage(image: logoPath, fit: BoxFit.contain, placeholder: Images.placeholder);
+    } else if (coverPath != null && coverPath.isNotEmpty && !coverPath.contains('placeholder')) {
+      return CustomImage(image: coverPath, fit: BoxFit.contain, placeholder: Images.placeholder);
+    } else if (thumbPath != null && thumbPath.isNotEmpty && !thumbPath.contains('placeholder')) {
+      return CustomImage(image: thumbPath, fit: BoxFit.contain, placeholder: Images.placeholder);
+    }
+    return const Icon(Icons.storefront_rounded, size: 40, color: Colors.grey);
+  }
+
+  Widget _renderDynamicField(String key, dynamic value) {
+    if (value == null || value.toString().isEmpty) return const SizedBox();
+
+    // ─── Handle Map (e.g. Working Hours) ───
+    if (value is Map) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: _kGoldLight, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(_getDynamicIcon(key), size: 18, color: _kGold),
+                ),
+                const SizedBox(width: 12),
+                Text(_formatKey(key), style: robotoBold.copyWith(fontSize: 16, color: _kPrimary)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade200),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10)],
+              ),
+              child: Column(
+                children: value.entries.map((e) {
+                  String day = e.key.toString();
+                  var data = e.value;
+                  if (data is Map) {
+                    bool active = data['active'] == '1' || data['active'] == 1 || data['active'] == true;
+                    
+                    String startStr = data['start']?.toString().trim() ?? '';
+                    String endStr = data['end']?.toString().trim() ?? '';
+                    bool hasHours = active && startStr.isNotEmpty && startStr != '-' && startStr.toLowerCase() != 'null' && endStr.isNotEmpty && endStr != '-' && endStr.toLowerCase() != 'null';
+                    
+                    Widget timeWidget;
+                    if (!active) {
+                      timeWidget = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.red.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+                        child: Text('closed'.tr, style: robotoMedium.copyWith(fontSize: 13, color: Colors.red)),
+                      );
+                    } else if (hasHours) {
+                      timeWidget = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: _kNeutral, borderRadius: BorderRadius.circular(8)),
+                        child: Text('${data['start']} - ${data['end']}', style: robotoMedium.copyWith(fontSize: 13, color: _kBlue)),
+                      );
+                    } else {
+                      // 24 Hours Open Glassmorphism Badge
+                      timeWidget = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [const Color(0xFF059669).withOpacity(0.15), const Color(0xFF10b981).withOpacity(0.05)]),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF34d399).withOpacity(0.5), width: 1),
+                          boxShadow: [
+                            BoxShadow(color: const Color(0xFF059669).withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.all_inclusive_rounded, size: 14, color: Color(0xFF059669)),
+                            const SizedBox(width: 4),
+                            Text('open_24_hours'.tr, style: robotoBold.copyWith(fontSize: 12, color: const Color(0xFF059669))),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(day, style: robotoMedium.copyWith(fontSize: 15, color: _kPrimary)),
+                          timeWidget,
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox();
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ─── Handle Standard Text ───
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: _kGold.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(_getDynamicIcon(key), size: 18, color: _kGold),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_formatKey(key), style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[500])),
+                const SizedBox(height: 4),
+                Text(value.toString(), style: robotoBold.copyWith(fontSize: 15, color: _kPrimary, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewTile(dynamic r) {
+    String comment = r['review_comment'] ?? '';
+    double rat = r['review_rating'] != null ? double.tryParse(r['review_rating'].toString()) ?? 0 : 0;
+    String name = r['customer'] != null ? '${r['customer']['first_name']} ${r['customer']['last_name']}' : 'Anonymous';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(name, style: robotoBold.copyWith(fontSize: 15, color: _kPrimary)),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: _kGold, size: 14),
+                  const SizedBox(width: 4),
+                  Text(rat.toStringAsFixed(1), style: robotoBold.copyWith(fontSize: 13, color: _kGold)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(comment, style: robotoRegular.copyWith(fontSize: 14, color: Colors.grey[600], height: 1.5)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDoctorsSection(List<Map<String, dynamic>> doctors, String currency) {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.medical_services_rounded, color: Color(0xFF0369a1), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Doctors & Specialists'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: doctors.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final doc = doctors[index];
+              final String name = doc['name']?.toString() ?? '';
+              final String specialty = doc['specialty']?.toString() ?? '';
+              final String fee = doc['fee']?.toString() ?? '';
+              final String quals = doc['qualifications']?.toString() ?? '';
+              final String hours = doc['hours']?.toString() ?? '';
+              String image = doc['image']?.toString() ?? '';
+              
+              if (image.isNotEmpty && !image.startsWith('http')) {
+                image = '${AppConstants.baseUrl}/storage/directory/dynamic/$image';
+              }
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFbae6fd)),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFF0369a1).withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Avatar
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF0369a1).withOpacity(0.3), width: 2),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: image.isNotEmpty ? CustomImage(image: image, fit: BoxFit.cover, placeholder: Images.placeholder) : const Icon(Icons.person, color: Colors.grey),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: robotoBold.copyWith(fontSize: 15, color: const Color(0xFF0369a1))),
+                          if (specialty.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(specialty, style: robotoMedium.copyWith(fontSize: 13, color: Colors.grey[600])),
+                          ],
+                          if (quals.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(quals, style: robotoRegular.copyWith(fontSize: 12, color: Colors.grey[500])),
+                          ],
+                          if (hours.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.access_time_rounded, size: 14, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(hours, style: robotoRegular.copyWith(fontSize: 12, color: Colors.grey[600])),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Fee Badge
+                    if (fee.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('consultation_fee'.tr, style: robotoMedium.copyWith(fontSize: 10, color: Colors.grey[500])),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFf0f9ff),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFbae6fd)),
+                            ),
+                            child: buildPriceText(currency, fee, 13, const Color(0xFF0369a1)),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductsSection(String sectionTitle, List<Map<String, dynamic>> products, String currency) {
+    final previewProducts = products.take(4).toList();
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.vaccines_rounded, color: Color(0xFF15803d), size: 22),
+                  const SizedBox(width: 8),
+                  _sectionTitle(sectionTitle),
+                ],
+              ),
+              if (products.length > 4)
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    Get.to(() => CategoryProductsScreen(
+                      products: products,
+                      title: sectionTitle,
+                      currency: currency,
+                    ));
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text(
+                      'View All',
+                      style: robotoBold.copyWith(fontSize: 14, color: _kBlue),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.60,
+            ),
+            itemCount: previewProducts.length,
+            itemBuilder: (context, index) {
+              final prod = previewProducts[index];
+              final String title = prod['title']?.toString() ?? '';
+              final String price = prod['price']?.toString() ?? '';
+              final String desc = prod['description']?.toString() ?? '';
+              String image = prod['image']?.toString() ?? '';
+              
+              if (image.isNotEmpty && !image.startsWith('http')) {
+                image = '${AppConstants.baseUrl}/storage/directory/dynamic/$image';
+              }
+
+              bool hasDiscount = prod['has_discount'] == '1' || prod['has_discount'] == 1 || prod['has_discount'] == true;
+              bool fastDelivery = prod['fast_delivery'] == '1' || prod['fast_delivery'] == 1 || prod['fast_delivery'] == true;
+              final String deliveryTime = prod['delivery_time']?.toString() ?? '';
+              final String discountPercent = prod['discount_percent']?.toString() ?? '';
+
+              double originalPrice = double.tryParse(price) ?? 0;
+              double discountPct = double.tryParse(discountPercent) ?? 0;
+              double finalPrice = hasDiscount && discountPct > 0
+                  ? originalPrice * (1 - discountPct / 100)
+                  : originalPrice;
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 6)),
+                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Image Header
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(14),
+                            topRight: Radius.circular(14),
+                          ),
+                          child: SizedBox(
+                            height: 110,
+                            width: double.infinity,
+                            child: image.isNotEmpty
+                                ? CustomImage(
+                                    image: image,
+                                    fit: BoxFit.cover,
+                                    placeholder: Images.placeholder,
+                                  )
+                                : Container(color: const Color(0xFFF4F6FA), child: const Center(child: Icon(Icons.image_rounded, color: Colors.grey))),
+                          ),
+                        ),
+                        // Discount Badge
+                        if (hasDiscount && discountPct > 0)
+                          PositionedDirectional(
+                            top: 8,
+                            start: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(colors: [Colors.red[500]!, Colors.red[700]!]),
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2))],
+                              ),
+                              child: Text(
+                                '-${discountPct.toStringAsFixed(0)}%',
+                                style: robotoBold.copyWith(fontSize: 10, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    // Info
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(title, style: robotoBold.copyWith(fontSize: 13, color: _kPrimary, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                if (desc.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(desc, style: robotoRegular.copyWith(fontSize: 11, color: Colors.grey[500]), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ],
+                              ],
+                            ),
+                            if (price.isNotEmpty)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (hasDiscount && discountPct > 0) ...[
+                                    Text(
+                                      '$currency $price',
+                                      style: robotoRegular.copyWith(
+                                        fontSize: 11,
+                                        color: Colors.grey[400],
+                                        decoration: TextDecoration.lineThrough,
+                                        decorationColor: Colors.grey[400],
+                                      ),
+                                    ),
+                                  ],
+                                  buildPriceText(
+                                    currency,
+                                    (hasDiscount && discountPct > 0) ? finalPrice.toStringAsFixed(2) : price,
+                                    15,
+                                    hasDiscount && discountPct > 0 ? Colors.red[600]! : _kPrimary,
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Badges bottom strip
+                    if (fastDelivery || deliveryTime.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(14), bottomRight: Radius.circular(14)),
+                          border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.1))),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (fastDelivery)
+                              Row(
+                                children: [
+                                  const _SpeedingIcon(icon: Icons.two_wheeler_rounded, color: Color(0xFFD97706)),
+                                  const SizedBox(width: 4),
+                                  Text('fast_delivery'.tr, style: robotoBold.copyWith(fontSize: 10, color: const Color(0xFFD97706))),
+                                ],
+                              ),
+                            if (deliveryTime.isNotEmpty && !fastDelivery)
+                              Row(
+                                children: [
+                                  Icon(Icons.timer_rounded, size: 12, color: Colors.grey[500]),
+                                  const SizedBox(width: 4),
+                                  Text(deliveryTime, style: robotoBold.copyWith(fontSize: 10, color: Colors.grey[600])),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          if (products.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Get.to(() => CategoryProductsScreen(
+                        title: sectionTitle,
+                        products: products,
+                        currency: currency,
+                      ));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF15803d),
+                  elevation: 0,
+                  side: const BorderSide(color: Color(0xFF15803d)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text('See All Products (${products.length})', style: robotoBold.copyWith(fontSize: 14)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackagesSection(List<Map<String, dynamic>> packages, String currency) {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.favorite_rounded, color: Color(0xFF7e22ce), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Health Packages'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: packages.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final pkg = packages[index];
+              final String title = pkg['package_title']?.toString() ?? '';
+              final String price = pkg['price']?.toString() ?? '';
+              final String desc = pkg['description']?.toString() ?? '';
+              String image = pkg['image']?.toString() ?? '';
+              
+              if (image.isNotEmpty && !image.startsWith('http')) {
+                image = '${AppConstants.baseUrl}/storage/directory/dynamic/$image';
+              }
+
+              String colorHex = pkg['color']?.toString() ?? '#7e22ce';
+              colorHex = colorHex.replaceAll('#', '');
+              if (colorHex.length == 6) {
+                colorHex = 'FF$colorHex';
+              }
+              Color pkgColor = Color(int.parse(colorHex, radix: 16));
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: pkgColor.withOpacity(0.3)),
+                  boxShadow: [
+                    BoxShadow(color: pkgColor.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (image.isNotEmpty)
+                      Container(
+                        height: 140,
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(19)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
+                          child: CustomImage(image: image, fit: BoxFit.cover, placeholder: Images.placeholder),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(title, style: robotoBold.copyWith(fontSize: 16, color: pkgColor)),
+                              ),
+                              if (price.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(colors: [pkgColor.withOpacity(0.6), pkgColor]),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: buildPriceText(currency, price, 14, Colors.white),
+                                ),
+                            ],
+                          ),
+                          if (desc.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text('included_features'.tr, style: robotoBold.copyWith(fontSize: 13, color: Colors.grey[700])),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8, runSpacing: 8,
+                              children: desc.split(',').map((f) {
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle_rounded, size: 14, color: pkgColor),
+                                    const SizedBox(width: 4),
+                                    Text(f.trim(), style: robotoMedium.copyWith(fontSize: 12, color: Colors.grey[800])),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBannersSection(List<Map<String, dynamic>> banners) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      height: 180,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _bannerPageController,
+            itemCount: banners.length,
+            onPageChanged: (index) {
+              _currentBannerIndex.value = index;
+            },
+            itemBuilder: (context, index) {
+              final bnr = banners[index];
+              final String image = bnr['image'] ?? '';
+              final String link = bnr['link'] ?? '';
+
+              return GestureDetector(
+                onTap: () => _launchUrl(link),
+                child: Container(
+                  margin: EdgeInsets.zero,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: CustomImage(
+                      image: '${AppConstants.baseUrl}/storage/app/public/directory/dynamic/$image',
+                      fit: BoxFit.cover,
+                      placeholder: Images.placeholder,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          if (banners.length > 1)
+            Positioned(
+              bottom: 12,
+              left: 0,
+              right: 0,
+              child: ValueListenableBuilder<int>(
+                valueListenable: _currentBannerIndex,
+                builder: (context, currentIndex, child) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(banners.length, (index) {
+                      final bool isActive = index == currentIndex;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: isActive ? 20 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isActive ? Colors.white : Colors.white.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                          ],
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGridItemsSection(List<Map<String, dynamic>> gridItems, List<Map<String, dynamic>> productsList, String currency) {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.grid_view_rounded, color: Color(0xFFb45309), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Categories & Links'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: gridItems.length,
+            itemBuilder: (context, index) {
+              final itm = gridItems[index];
+              final String title = itm['title']?.toString() ?? '';
+              final String image = itm['image'] ?? '';
+              final String link = itm['link'] ?? '';
+
+              return GestureDetector(
+                onTap: () {
+                  if (link.isNotEmpty) {
+                    _launchUrl(link);
+                  } else if (productsList.isNotEmpty) {
+                    Get.to(() => CategoryProductsScreen(
+                          title: 'Products & Medicines',
+                          products: productsList,
+                          currency: currency,
+                          initialCategory: title,
+                        ));
+                  }
+                },
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFfef3c7),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFfde68a)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: image.isNotEmpty
+                              ? CustomImage(
+                                  image: '${AppConstants.baseUrl}/storage/app/public/directory/dynamic/$image',
+                                  fit: BoxFit.cover,
+                                  placeholder: Images.placeholder,
+                                )
+                              : const Center(child: Icon(Icons.image_rounded, color: Color(0xFFb45309))),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      style: robotoMedium.copyWith(fontSize: 12, color: _kPrimary),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError(DirectoryController ctrl) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline_rounded, size: 64, color: Colors.red[300]),
+          const SizedBox(height: 16),
+          Text('failed_to_load_details'.tr, style: robotoMedium.copyWith(fontSize: 16, color: _kPrimary)),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => ctrl.getDirectoryDetails(widget.directoryId),
+            style: ElevatedButton.styleFrom(backgroundColor: _kPrimary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            child: Text('retry'.tr, style: robotoMedium.copyWith(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    if (url.isEmpty) return;
+    try {
+      final Uri uri = Uri.parse(!url.startsWith('http') && !url.startsWith('tel:') ? 'https://$url' : url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        customSnackBar('could_not_open_link'.tr);
+      }
+    } catch (_) {
+      customSnackBar('invalid_link'.tr);
+    }
+  }
+
+  Future<void> _launchMaps(String? lat, String? lng) async {
+    if (lat == null || lng == null) return;
+    final Uri uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      customSnackBar('could_not_open_maps'.tr);
+    }
+  }
+
+  Widget _buildProviderBadge(String badgeText) {
+    IconData icon = Icons.check_circle_rounded;
+    Color color = const Color(0xFF0052CC); // default blue
+    
+    if (badgeText.toLowerCase().contains('24/7')) {
+      icon = Icons.access_time_filled;
+      color = const Color(0xFF059669); // green
+    } else if (badgeText.toLowerCase().contains('emergency')) {
+      icon = Icons.local_hospital_rounded;
+      color = const Color(0xFFDC2626); // red
+    } else if (badgeText.toLowerCase().contains('top rated')) {
+      icon = Icons.star_rounded;
+      color = _kGold;
+    } else if (badgeText.toLowerCase().contains('verified')) {
+      icon = Icons.verified_rounded;
+      color = const Color(0xFF2563EB); // blue
+    } else if (badgeText.toLowerCase().contains('insurance')) {
+      icon = Icons.health_and_safety_rounded;
+      color = const Color(0xFF0891B2); // cyan
+    } else if (badgeText.toLowerCase().contains('online')) {
+      icon = Icons.computer_rounded;
+      color = const Color(0xFF7C3AED); // purple
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        border: Border.all(color: color.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            badgeText,
+            style: robotoBold.copyWith(fontSize: 11, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRelatedListings(DirectoryModel currentDir) {
+    return GetBuilder<DirectoryController>(builder: (ctrl) {
+      final listings = ctrl.directoryList ?? [];
+      final related = listings.where((d) => d.categoryId == currentDir.categoryId && d.id != currentDir.id).toList();
+      
+      if (related.isEmpty) return const SizedBox();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.maps_home_work_rounded, color: Color(0xFFC5A059), size: 22),
+              const SizedBox(width: 8),
+              _sectionTitle('Related ${currentDir.category?['name'] ?? 'Listings'}'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 95,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: related.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, index) {
+                final d = related[index];
+                final imgUrl = d.coverImageFullPath ?? d.bannerUrl ?? '';
+                final rating = d.averageRating ?? 0.0;
+
+                return GestureDetector(
+                  onTap: () => Get.to(() => DirectoryDetailsScreen(
+                    directoryId: d.id ?? '',
+                    categoryName: d.category?['name'] ?? 'Business',
+                    initialModel: d,
+                  ), preventDuplicates: false),
+                  child: Container(
+                    width: 260,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 5)),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: SizedBox(
+                            width: 70, height: 70,
+                            child: imgUrl.isNotEmpty
+                              ? CustomImage(image: imgUrl, fit: BoxFit.cover)
+                              : Container(color: const Color(0xFFF0F0F0), child: Icon(Icons.storefront_rounded, size: 30, color: Colors.grey[300])),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(d.title ?? 'Business', style: robotoBold.copyWith(fontSize: 14, color: _kPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 3),
+                              Text(d.category?['name'] ?? '', style: robotoRegular.copyWith(fontSize: 11, color: Colors.grey[500]), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const Icon(Icons.star_rounded, size: 14, color: Color(0xFFC5A059)),
+                                  const SizedBox(width: 3),
+                                  Text(rating > 0 ? rating.toStringAsFixed(1) : 'New', style: robotoMedium.copyWith(fontSize: 12, color: _kPrimary)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _GallerySlider extends StatefulWidget {
+  final DirectoryModel directory;
+  const _GallerySlider({required this.directory});
+
+  @override
+  State<_GallerySlider> createState() => _GallerySliderState();
+}
+
+class _GallerySliderState extends State<_GallerySlider> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> images = widget.directory.galleryFullPaths;
+    
+    // Fallback if no gallery images, use single cover
+    if (images.isEmpty) {
+      return _buildStaticCover(widget.directory.bannerUrl ?? '');
+    }
+
+    // If only one image in gallery, don't show slider, just static cover
+    if (images.length == 1) {
+      return _buildStaticCover(images[0]);
+    }
+
+    // Multiple images -> Slider
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CarouselSlider(
+          options: CarouselOptions(
+            height: double.infinity,
+            viewportFraction: 1.0,
+            autoPlay: true,
+            autoPlayInterval: const Duration(seconds: 5),
+            onPageChanged: (index, reason) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+          ),
+          items: images.map((img) {
+            return Builder(
+              builder: (BuildContext context) {
+                return SizedBox(
+                  width: MediaQuery.of(context).size.width,
+                  child: CustomImage(
+                    image: img,
+                    fit: BoxFit.fill,
+                    placeholder: Images.placeholder,
+                  ),
+                );
+              },
+            );
+          }).toList(),
+        ),
+        // Dots Indicator
+        Positioned(
+          bottom: 45,
+          left: 0,
+          right: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: images.asMap().entries.map((entry) {
+              final int index = entry.key;
+              final bool isActive = _currentIndex == index;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: isActive ? 20 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isActive ? Colors.white : Colors.white.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        // Premium Gradient Overlay
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.6),
+                Colors.transparent,
+                Colors.black.withOpacity(0.4),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStaticCover(String url) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          width: double.infinity,
+          height: double.infinity,
+          color: Colors.white,
+          child: CustomImage(
+            image: url,
+            fit: BoxFit.contain,
+            placeholder: Images.placeholder,
+          ),
+        ),
+        // Premium Gradient Overlay
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.6),
+                Colors.transparent,
+                Colors.black.withOpacity(0.4),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MenuTabsSection extends StatefulWidget {
+  final Map<String, List> menuTabs;
+  final String currency;
+  const _MenuTabsSection({required this.menuTabs, required this.currency});
+
+  @override
+  State<_MenuTabsSection> createState() => _MenuTabsSectionState();
+}
+
+class _MenuTabsSectionState extends State<_MenuTabsSection> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.menuTabs.isEmpty) return const SizedBox();
+
+    List<String> tabKeys = widget.menuTabs.keys.toList();
+    List items = widget.menuTabs[tabKeys[_selectedIndex]] ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ─── Tabs ───
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              physics: const BouncingScrollPhysics(),
+              itemCount: tabKeys.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                bool isSelected = _selectedIndex == index;
+                String title = tabKeys[index].split('_').map((word) => word.capitalizeFirst).join(' ');
+                
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedIndex = index),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: isSelected ? const Border(bottom: BorderSide(color: _kPrimary, width: 2.5)) : const Border(bottom: BorderSide(color: Colors.transparent, width: 2.5)),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      title,
+                      style: isSelected ? robotoBold.copyWith(
+                        fontSize: 13,
+                        color: _kPrimary,
+                      ) : robotoMedium.copyWith(
+                        fontSize: 13,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ─── Tab Content (Menu Items) ───
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: items.map((item) {
+                if (item is Map) {
+                  String title = item['title']?.toString() ?? '';
+                  String desc = item['description']?.toString() ?? '';
+                  String price = item['price']?.toString() ?? '';
+                  String extras = item['extras']?.toString() ?? '';
+                  String image = item['image']?.toString() ?? '';
+                  String imageUrl = '';
+                  String currency = widget.currency;
+                  
+                  if (image.isNotEmpty) {
+                    // Backend now returns full URL - use directly if it starts with http
+                    if (image.startsWith('http')) {
+                      imageUrl = image;
+                    } else {
+                      imageUrl = '${AppConstants.baseUrl}/storage/directory/dynamic/$image';
+                    }
+                  }
+
+                  // Pick a subtle gradient palette per item
+                  final List<List<Color>> _gradients = [
+                    [const Color(0xFFF8F4EF), const Color(0xFFEDE5D8)], // Warm ivory
+                    [const Color(0xFFF0F4FA), const Color(0xFFDDE7F3)], // Cool sky
+                    [const Color(0xFFF5F0F8), const Color(0xFFE8DCF0)], // Soft lavender
+                    [const Color(0xFFEFF8F4), const Color(0xFFD8EDE3)], // Mint fresh
+                    [const Color(0xFFFFF8F0), const Color(0xFFF0E0C8)], // Golden cream
+                  ];
+                  final gradientColors = _gradients[items.indexOf(item) % _gradients.length];
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: GestureDetector(
+                      onTap: () => _showItemModal(context, title, desc, price, extras, imageUrl, currency),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // ─── Main Card ───
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: gradientColors,
+                              ),
+                              border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.2),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, 6)),
+                                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                // ─── Subtle watermark icon behind content ───
+                                if (image.isNotEmpty)
+                                  Positioned(
+                                    right: -8,
+                                    bottom: -8,
+                                    child: Opacity(
+                                      opacity: 0.08,
+                                      child: SizedBox(
+                                        width: 90,
+                                        height: 90,
+                                        child: CustomImage(
+                                          image: imageUrl,
+                                          fit: BoxFit.contain,
+                                          placeholder: Images.placeholder,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                // ─── Card Content ───
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (image.isNotEmpty) ...[
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [
+                                            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4)),
+                                          ],
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: SizedBox(
+                                            width: 85,
+                                            height: 85,
+                                            child: CustomImage(
+                                              image: imageUrl,
+                                              fit: BoxFit.cover,
+                                              placeholder: Images.placeholder,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                    ],
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(title, style: robotoBold.copyWith(fontSize: 15, color: _kPrimary)),
+                                          if (desc.isNotEmpty) ...[
+                                            const SizedBox(height: 6),
+                                            Text(desc, style: robotoRegular.copyWith(fontSize: 12, color: Colors.grey[600], height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                          ],
+                                          if (extras.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                _AnimatedExtrasPill(
+                                                  onTap: () => _showItemModal(context, title, desc, price, extras, imageUrl, currency),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                          const SizedBox(height: 20), // Space for the floating price
+                                        ],
+                                      ),
+                                    ),
+
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          // ─── Floating Price Badge (3D effect) ───
+                          if (price.isNotEmpty)
+                            Positioned(
+                              bottom: -10,
+                              left: image.isNotEmpty ? 115 : 16,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0xFFD4B872), Color(0xFFC5A059)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: const Color(0xFFE0C880).withOpacity(0.5), width: 0.5),
+                                  boxShadow: [
+                                    BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4)),
+                                    BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4, offset: const Offset(0, 2)),
+                                  ],
+                                ),
+                                child: buildPriceText(currency, price, 13, Colors.white),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox();
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Premium Item Detail Modal ───
+  void _showItemModal(BuildContext context, String title, String desc, String price, String extras, String imageUrl, String currency) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFFFDF8),
+              Color(0xFFF8F4EE),
+              Color(0xFFF0EBE0),
+            ],
+          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ─── Drag Handle ───
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // ─── Close button ───
+            Align(
+              alignment: Alignment.topRight,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  margin: const EdgeInsets.only(top: 8, right: 20),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _kPrimary.withOpacity(0.06),
+                    border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                  ),
+                  child: const Icon(Icons.close_rounded, size: 18, color: _kPrimary),
+                ),
+              ),
+            ),
+            // ─── Image ───
+            if (imageUrl.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                height: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFE0D8C8).withOpacity(0.5), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: CustomImage(image: imageUrl, fit: BoxFit.cover, placeholder: Images.placeholder),
+                ),
+              ),
+            // ─── Title ───
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Text(
+                title,
+                style: robotoBold.copyWith(fontSize: 22, color: _kPrimary, height: 1.2),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // ─── Description ───
+            if (desc.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Text(
+                  desc,
+                  style: robotoRegular.copyWith(fontSize: 14, color: Colors.grey[600], height: 1.5),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+            // ─── Extras ───
+            if (extras.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  children: [
+                    Text('available_extras'.tr, style: robotoBold.copyWith(fontSize: 14, color: _kPrimary.withOpacity(0.8))),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: extras.split(',').map((e) {
+                        String eStr = e.trim();
+                        // Try to highlight price if exists like "+$2"
+                        List<String> parts = eStr.split(RegExp(r'(?=\+\$)'));
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFE0D8C8), width: 1.2),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 3)),
+                            ],
+                          ),
+                          child: RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(text: parts[0].trim(), style: robotoMedium.copyWith(fontSize: 13, color: _kPrimary)),
+                                if (parts.length > 1)
+                                  TextSpan(text: '  ${parts[1].trim()}', style: robotoBold.copyWith(fontSize: 13, color: const Color(0xFFC5A059))),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // ─── Price badge ───
+            if (price.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFD4B872), Color(0xFFC5A059)],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: const Color(0xFFE0C880).withOpacity(0.6), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 14, offset: const Offset(0, 5)),
+                  ],
+                ),
+                child: buildPriceText(currency, price, 20, Colors.white),
+              ),
+            ],
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedExtrasPill extends StatefulWidget {
+  final VoidCallback onTap;
+  const _AnimatedExtrasPill({required this.onTap});
+
+  @override
+  State<_AnimatedExtrasPill> createState() => _AnimatedExtrasPillState();
+}
+
+class _AnimatedExtrasPillState extends State<_AnimatedExtrasPill> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        transformAlignment: Alignment.centerLeft,
+        transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.centerLeft,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsetsDirectional.only(start: 14),
+              padding: const EdgeInsets.fromLTRB(18, 5, 12, 5),
+              decoration: BoxDecoration(
+                color: _isPressed ? Colors.white.withOpacity(0.9) : Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _isPressed ? _kGold : Colors.white, 
+                  width: 1.5
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _isPressed ? _kGold.withOpacity(0.4) : Colors.black.withOpacity(0.03), 
+                    blurRadius: _isPressed ? 12 : 4, 
+                    offset: const Offset(0, 2)
+                  ),
+                ],
+              ),
+              child: Text(
+                'Extras available', 
+                style: robotoBold.copyWith(
+                  fontSize: 11, 
+                  color: _isPressed ? _kGold : _kPrimary.withOpacity(0.85)
+                )
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _isPressed ? _kGold : _kPrimary,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: _isPressed ? _kGold.withOpacity(0.6) : _kPrimary.withOpacity(0.3), 
+                    blurRadius: _isPressed ? 12 : 6, 
+                    offset: const Offset(0, 3)
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget buildPriceText(String currency, String price, double fontSize, Color color) {
+  if (currency == 'AED') {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          height: fontSize * 1.2,
+          width: fontSize * 0.85,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text('D', style: robotoBold.copyWith(fontSize: fontSize, color: color, height: 1)),
+              Positioned(top: fontSize * 0.50, left: 0, right: fontSize * 0.15, child: Container(height: fontSize * 0.1, color: color)),
+              Positioned(top: fontSize * 0.70, left: 0, right: fontSize * 0.15, child: Container(height: fontSize * 0.1, color: color)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(price, style: robotoBold.copyWith(fontSize: fontSize, color: color)),
+      ],
+    );
+  }
+  return Text('$currency$price', style: robotoBold.copyWith(fontSize: fontSize, color: color));
+}
+
+class _SpeedingIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  const _SpeedingIcon({required this.icon, required this.color});
+
+  @override
+  State<_SpeedingIcon> createState() => _SpeedingIconState();
+}
+
+class _SpeedingIconState extends State<_SpeedingIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: -1.5, end: 1.5).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutSine,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(_animation.value, 0),
+          child: Icon(widget.icon, size: 14, color: widget.color),
+        );
+      },
+    );
+  }
+}

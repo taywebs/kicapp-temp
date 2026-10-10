@@ -1,0 +1,86 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+firebase.json
+.firebase
+get_changed_files.sh
+pubspec.lock
+
+# Web related
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# ============================================
+# 🔐 SENSITIVE FILES - DO NOT COMMIT
+# ============================================
+
+# Firebase config files (contain API keys)
+ios/GoogleService-Info.plist
+android/app/google-services.json
+
+# CocoaPods lock file (causes version conflicts on CI)
+ios/Podfile.lock
+
+
+# iOS Certificates & Provisioning Profiles
+*.p12
+*.cer
+*.mobileprovision
+*.p8
+
+# Keystore files (Android signing)
+*.jks
+*.keystore
+android/key.properties
+
+# Environment / secrets files
+.env
+.env.*
+secrets.json
+config/secrets.dart
+
+# macOS
+*.DS_Store
+
+# Local machine / build noise (added during the Easy to find rework)
+android/local.properties
+android/hs_err_pid*.log
+android/replay_pid*.log
+*.rar
+*.bak

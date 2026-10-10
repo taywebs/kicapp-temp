@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Deletion - Kicapp</title>
+    <style>
+        /* Modern CSS Reset & Setup */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body { 
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); 
+            min-height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 20px; 
+            color: #1f2937; 
+        }
+        .container { 
+            background: #ffffff; 
+            max-width: 650px; 
+            width: 100%; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08); 
+            overflow: hidden; 
+        }
+        .header { 
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
+            color: #ffffff; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .header h1 { 
+            font-size: 28px; 
+            font-weight: 700; 
+            margin-bottom: 10px; 
+            letter-spacing: -0.5px;
+        }
+        .header p { 
+            font-size: 15px; 
+            opacity: 0.9; 
+        }
+        .content { 
+            padding: 40px 30px; 
+        }
+        .intro-text {
+            margin-bottom: 30px; 
+            color: #4b5563; 
+            line-height: 1.7;
+            font-size: 16px;
+            text-align: center;
+        }
+        .section { 
+            margin-bottom: 25px; 
+            padding: 25px; 
+            background: #f8fafc; 
+            border-radius: 16px; 
+            border-left: 5px solid #3b82f6; 
+            transition: transform 0.2s ease;
+        }
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        .section.email-section {
+            border-left-color: #ef4444;
+        }
+        .section h2 { 
+            font-size: 20px; 
+            color: #1e293b; 
+            margin-bottom: 15px; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+        }
+        .step-list { 
+            list-style: none; 
+            margin-top: 15px;
+        }
+        .step-list li { 
+            margin-bottom: 14px; 
+            font-size: 15px; 
+            color: #4b5563; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+        }
+        .step-list li::before { 
+            content: '✓'; 
+            color: #ffffff; 
+            background: #3b82f6;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .btn { 
+            display: flex; 
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #ef4444; 
+            color: #ffffff; 
+            padding: 14px 28px; 
+            text-decoration: none; 
+            border-radius: 10px; 
+            font-weight: 600; 
+            font-size: 16px;
+            transition: all 0.3s ease; 
+            text-align: center; 
+            width: 100%; 
+            margin-top: 20px; 
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover { 
+            background: #dc2626; 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); 
+        }
+        .footer { 
+            text-align: center; 
+            padding: 25px; 
+            font-size: 14px; 
+            color: #6b7280; 
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb; 
+        }
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .icon { font-size: 24px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Account & Data Deletion</h1>
+            <p>Manage your Kicapp account data safely and securely</p>
+        </div>
+        
+        <div class="content">
+            <p class="intro-text">
+                At Kicapp, we respect your privacy and give you full control over your data. You can request to delete your account and all associated personal data using either of the two methods below.
+            </p>
+
+            <!-- Method 1: In App -->
+            <div class="section">
+                <h2><span class="icon">📱</span> Method 1: Delete via Kicapp App</h2>
+                <p style="color: #6b7280; font-size: 15px; line-height: 1.5;">If you have the application installed on your device, you can delete your account instantly by following these simple steps:</p>
+                <ul class="step-list">
+                    <li>Open the <strong>Kicapp</strong> application and Log in.</li>
+                    <li>Navigate to the <strong>More</strong> tab.</li>
+                    <li>Click on your <strong>Profile</strong> icon.</li>
+                    <li>Scroll down and select <strong>Delete Account</strong>.</li>
+                    <li>Confirm the deletion to permanently erase your data.</li>
+                </ul>
+            </div>
+
+            <!-- Method 2: Email Request -->
+            <div class="section email-section">
+                <h2><span class="icon">📧</span> Method 2: Request via Email</h2>
+                <p style="color: #6b7280; font-size: 15px; line-height: 1.6;">
+                    If you no longer have access to the app, you can request full account deletion by contacting our support team. We will process your request and permanently delete your data within 7 business days.
+                </p>
+                <a href="mailto:info@kicapps.com?subject=Account%20Deletion%20Request&body=Hello%20Kicapp%20Support,%0D%0A%0D%0APlease%20delete%20my%20account%20and%20all%20associated%20data.%0D%0A%0D%0AMy%20registered%20email/phone%20is:%20[ENTER%20YOUR%20EMAIL/PHONE%20HERE]%0D%0A%0D%0AThank%20you." class="btn">
+                    <span style="font-size: 20px;">✉️</span> Request Deletion via Email
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            &copy; 2026 Kicapp. All rights reserved.<br>
+            Need help? Contact us at <a href="mailto:info@kicapps.com">info@kicapps.com</a>
+        </div>
+    </div>
+</body>
+</html>
