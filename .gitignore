@@ -51,7 +51,7 @@ app.*.map.json
 # ============================================
 
 # Firebase config files (contain API keys)
-ios/GoogleService-Info.plist
+
 android/app/google-services.json
 
 # CocoaPods lock file (causes version conflicts on CI)
