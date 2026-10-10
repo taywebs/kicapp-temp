@@ -86,7 +86,7 @@ dependencies:
 # flutter_html 3.0.0 calls the top-level `matches()` that html 0.15.5 removed,
 # which breaks the release compile. 0.15.4 is the last version it builds against.
 dependency_overrides:
-  html: 0.15.4
+  html: 0.15.2
 
 
 dev_dependencies:
